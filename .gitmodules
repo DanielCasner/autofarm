@@ -1,3 +1,0 @@
-[submodule "PCA9685_pigpio"]
-	path = PCA9685_pigpio
-	url = git@github.com:DanielCasner/Adafruit_Python_PCA9685.git

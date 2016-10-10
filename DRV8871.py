@@ -12,8 +12,6 @@ class Motor:
     def __init__(self, pi, in1, in2):
         self.pi = pi
         self.gpio = (in1, in2)
-        for p in self.gpio:
-            self.pi.set_mode(p, pigpio.OUTPUT)
         self.coast()
         
     def coast(self):

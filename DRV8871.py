@@ -13,7 +13,10 @@ class Motor:
         self.pi = pi
         self.gpio = (in1, in2)
         self.coast()
-        
+    
+    def __del__(self):
+        self.coast()
+    
     def coast(self):
         "Put motor into coast mode, drivers in high-Z mode"
         for p in self.gpio:

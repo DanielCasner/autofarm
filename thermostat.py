@@ -4,6 +4,12 @@ Chicken coop temperature controller module.
 """
 __author__ = "Daniel Casner"
 
+import logging
+
+def clamp(value, lower_bound, upper_bound):
+    "Returns value clamped between lower bound and upper bound inclusive"
+    return max(lower_bound, min(value, upper_bound))
+
 class Thermostat(object):
     "Basic class for managing temperature"
     
@@ -25,6 +31,7 @@ class Thermostat(object):
         self._cool_target = None
         self._heat_integral = 0
         self._cool_integral = 0
+        self.logger = logging.getLogger(__name__)
     
     def __del__(self):
         if self.cooler is not None:
@@ -71,25 +78,15 @@ class Thermostat(object):
         if self.heater is not None and self._heat_target is not None:
             e = temperature - self._heat_target
             d = temperature - self._last_sample
-            self._heat_integral += e
-            if abs(elf._heat_integral) > self.i_max:
-                self._heat_integral = self.i_max if self._heat_integral > 0 else -self.i_max
-            c = self.kp * e + self.ki * self._heat_integral + self.kd * d
-            if c < 0.0:
-                c = 0.0
-            elif c > 1.0:
-                c = 1.0
+            self._heat_integral = clamp(self._heat_integral + e, -self.i_max, self.i_max)
+            c = clamp(self.kp * e + self.ki * self._heat_integral + self.kd * d, 0.0, 1.0)
+            self.logger.debug("Heat: e={0} d={1} i={2} -> c={3}".format(e,d,self._heat_integral, c))
             self.heater.set(c)
         if self.cooler is not None and self._cool_target is not None:
             e = temperature - self._cool_target
             d = temperature - self._last_sample
-            self._cool_integral += e
-            if abs(self._cool_integral) > self.i_max:
-                self._cool_integral = self.i_max if self._cool_integral > 0 else -self.i_max
-            c = (self.kp * e + self.ki * self._cool_integral + self.kd * d) * -1.0 # Negative 1 because the cooler command is inverted
-            if c > 0.0:
-                c = 0.0
-            elif c < -1.0:
-                c = -1.0
+            self._cool_integral = clamp(self._cool_integral + e, -self.i_max, self.i_max)
+            c = clamp((self.kp * e + self.ki * self._cool_integral + self.kd * d) * -1.0, 0.0, 1.0) # Negative 1 because the cooler command is inverted
+            self.logger.debug("Cool: e={0} d={1} i={2} -> c={3}".format(e,d,self._cool_integral, c))
             self.cooler.set(c)
         self._last_sample = temperature

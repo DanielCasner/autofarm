@@ -7,15 +7,18 @@ Based on pgpio
 class Light(object):
     "One or more channel driver"
     
-    def __init__(self, pi, gpios, scales, phases=None):
+    def __init__(self, pi, gpios, scales=None, phases=None):
         self.pi = pi
         self.gpio   = tuple(gpios)
-        self.scales = scales
+        if scales is None:
+            self.scales = tuple([1] * len(gpios))
+        else:
+            self.scales = tuple(scales)
         if phases is None:
             num = len(self.gpios)
             self.phase = tuple((float(i)/num for i in range(num)))
         else:
-            self.phase = phases
+            self.phase = tuple(phases)
         self.set([0] * len(gpios))
         
     def __del__(self):
@@ -29,7 +32,7 @@ class Light(object):
 class Dimmer(object):
     "Mains dimmer controller"
     
-    def __init__(self, pi, gpio, min_pwm, max_pwm, phase=None):
+    def __init__(self, pi, gpio, min_pwm, max_pwm, phase=0):
         self.pi = pi
         self.gpio = gpio
         self.offset = min_pwm

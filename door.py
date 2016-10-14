@@ -18,6 +18,7 @@ class Door:
     CLOSE_TIMEOUT_MS  = 10000
     OPEN_SPEED        = -1.0
     CLOSE_SPEED       =  0.4
+    GLITCH_FILTER_µs  = 3000
     
     def __init__(self, pi, in1, in2, closed_sw, open_sw, client, door_status_topic):
         "Sets up the door logic with motor driver in1 and in2 and closed and open microswitches"
@@ -25,10 +26,10 @@ class Door:
         self.motor = Motor(pi, in1, in2)
         pi.set_mode(closed_sw, pigpio.INPUT)
         pi.set_pull_up_down(closed_sw, pigpio.PUD_UP)
-        pi.set_glitch_filter(closed_sw, 3000) # 3ms
+        pi.set_glitch_filter(closed_sw, GLITCH_FILTER_µs)
         pi.set_mode(open_sw, pigpio.INPUT)
         pi.set_pull_up_down(open_sw, pigpio.PUD_UP)
-        pi.set_glitch_filter(open_sw, 3000) # 3ms
+        pi.set_glitch_filter(open_sw, GLITCH_FILTER_µs)
         self.closSw = closed_sw
         self.open_sw = open_sw 
         self.logger = logging.getLogger(__name__)

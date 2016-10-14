@@ -33,11 +33,11 @@ class Motor:
         if speed == 0:
             self.coast()
         elif speed > 0:
-            dutycycle = round(speed * 255)
+            dutycycle = round(speed * self.pi.get_PWM_range(self.gpio[0]))
             self.pi.write(self.gpio[1], 0)
             self.pi.set_PWM_dutycycle(self.gpio[0], dutycycle)
         else: # speed < 0
-            dutycycle = round(speed * -255)
+            dutycycle = round(speed * -1 * self.pi.get_PWM_range(self.gpio[1]))
             self.pi.write(self.gpio[0], 0)
             self.pi.set_PWM_dutycycle(self.gpio[1], dutycycle)
             

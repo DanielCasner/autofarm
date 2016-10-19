@@ -19,6 +19,7 @@ def Flicker(WIND_VARIABILITY = 0.02,
     flameprime = 0
     wind = 0
     sensorWind = None
+    fuel = 1.0
     
     while True:
         if sensorWind is None:
@@ -34,7 +35,7 @@ def Flicker(WIND_VARIABILITY = 0.02,
         
         # The flame constantly gets brighter until the wind knocks it down
         if flame < 1.0:
-            flame += FLAME_GROWTH
+            flame += FLAME_GROWTH * fuel
         
         # Depending on the wind strength and the calmnes modifer we calcuate the odds
         # of the wind knocking down the flame by setting it to random values
@@ -43,13 +44,16 @@ def Flicker(WIND_VARIABILITY = 0.02,
         
         # Output is a slow follower with overshoot on flame to simulate inertia
         if flame > flameprime:
-            if flameprime < 1.0 - FLAME_AGILITY:
+            if flameprime < fuel - FLAME_AGILITY:
                 flameprime += FLAME_AGILITY
         else:
             if flameprime > FLAME_AGILITY:
                 flameprime -= FLAME_AGILITY
         
-        sensorWind = yield flameprime
+        feedback = yield flameprime
+        if feedback:
+            wind = feedback.get('wind')
+            fuel = feedback.get('fuel', fuel)
 
 
 if __name__ == '__main__':

@@ -17,6 +17,7 @@ from door import Door
 from thermostat import Thermostat
 import candle
 import lights
+import health
 
 BASE_TOPIC = "coop"
 
@@ -39,11 +40,11 @@ THERMOSTAT_PID = (1.0, 0.0, 0.0, 1.0)
 
 mqtt_client = None
 logger = logging.getLogger(__name__)
+hmon   = health.HealthMonitor()
 
 def topic_join(*args):
     "Returns the tokens specified jouint by the MQTT topic namespace separatot"
     return "/".join(args)
-
 
 def InitalizeHardware():
     # Set up pigpio interface

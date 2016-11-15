@@ -16,8 +16,10 @@ class Door:
     DOOR_AJAR_TOKEN   = json.dumps('AJAR')
     OPEN_TIMEOUT_MS   = 10000
     CLOSE_TIMEOUT_MS  = 10000
-    OPEN_SPEED        = -1.0
+    OPEN_SPEED        = -5.0
     CLOSE_SPEED       =  0.4
+    LATCH_SPEED       =  1.0
+    LATCH_DURATION    =  1.0
     GLITCH_FILTER_µs  = 3000
     
     def __init__(self, pi, in1, in2, closed_sw, open_sw, client, door_status_topic):
@@ -81,8 +83,10 @@ class Door:
         "Callback when close_sw is triggered"
         if level == 0:
             # Door finished closing
-            self.motor.stop()
             self.pi.set_watchdog(self.close_sw, 0)
+            self.motor.drive(self.LATCH_SPEED)
+            time.sleep(self.LATCH_DURATION)
+            self.motor.stop()
             self.logger.debug("Door now closed")
             self.publish_closed()
         elif level == pigpio.TIMEOUT:

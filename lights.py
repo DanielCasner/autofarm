@@ -4,6 +4,8 @@ Lighting helper functions
 Based on pgpio
 """
 
+import time
+
 class Light(object):
     "One or more channel driver"
     
@@ -26,8 +28,39 @@ class Light(object):
             self.pi.set_PWM_dutycycle(pin, 0)
     
     def set(self, *vals):
+        self._target = vals
         for pin, scale, phase, val in zip(self.gpio, self.scales, self.phase, vals):
             self.pi.set_PWM_dutycycle(pin, scale*val, phase)
+    
+    def get(self):
+        return self._target
+
+class SlowLinearFasder(Light):
+    "A light object that supports slow fading"
+    
+    def __init__(self, *a, **kw):
+        Light.__init__(self, *a, **kw)
+        self.start_val  = [0]
+        self.end_val    = [0]
+        self.start_time = 0
+        self.end_time   = 0
+        
+    def setTarget(self, duration, targets):
+        "Start linearly fading from current value to target over duration seconds"
+        self.start_val  = self.get()
+        self.end_val    = targets
+        self.start_time = time.time()
+        self.end_time   = self.start_time + duration
+    
+    def __next__(self):
+        now = time.time()
+        if now < self.end_time:
+            delta = now - self.start_time
+            progress = delta / (self.end_time - self.start_time)
+            interpolation = [sv * (1.0 - progress) + ev * (progress) for sv, ev in zip(self.start_val, self.end_val)]
+            self.set(interpolation)
+        # else should make sure final value is set but not worth the trouble
+        
 
 class Dimmer(object):
     "Mains dimmer controller"

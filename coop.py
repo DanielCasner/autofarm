@@ -26,6 +26,7 @@ DOOR_CLOSED_SW   =
 EXTERIOR_LIGHTS  = (4 + PCA9685Pi.EXTENDER_OFFSET,
                     5 + PCA9685Pi.EXTENDER_OFFSET,
                     6 + PCA9685Pi.EXTENDER_OFFSET)
+HEN_HOUSE_IR     =  6 + PCA9685Pi.EXTENDER_OFFSET
 HEN_HOUSE_LIGHT  =  7 + PCA9685Pi.EXTENDER_OFFSET
 BROODER_HEATER   =  8 + PCA9685Pi.EXTENDER_OFFSET
 BROODER_COOLER   =  9 + PCA9685Pi.EXTENDER_OFFSET
@@ -72,6 +73,14 @@ def InitalizeHardware():
                            callback = lambda: hen_lamp.setTarget(1.0, 45*60))
     sun_scheduler.addEvent(after  = ('noon', datetime.timedelta(hours=6, minutes=15)), # Always let hens sleep
                            callback = lambda: hen_lamp.setTarget(0.0, 45*60))
+    # Camera IR Illuminator
+    logger.debug("Setting up hen house camera IR illuminator")
+    global hen_illuminator
+    hen_illuminator = lights.Light(pi, [HEN_HOUSE_IR], [PCA9685Pi.MAX_PWM])
+    sun_scheduler.addEvent(after = ('sunrise', datetime.timedelta(0)),
+                                    callback = lambda: hen_illuminator.set(0.00))
+    sun_scheduler.addEvent(after = ('sunset', datetime.timedelta(0)),
+                                    callback = lambda: hen_illuminator.set(0.25))
 
 def DoorCommand(msg):
     try:
@@ -83,6 +92,10 @@ def DoorCommand(msg):
             hen_door.open()
         elif cmd == 'CLOSE':
             hen_door.close()
+        elif cmd == 'ENABLE':
+            hen_door.enable(True)
+        elif cmd == 'DISABLE':
+            hen_door.enable(False)
         else:
             logger.warn("Invalid door command: {}".format(cmd))
 
@@ -96,6 +109,17 @@ def HenHouseLightCommand(msg):
             logger.warn("Invalid hen house light command: {}".format(cmd))
         else:
             hen_lamp.setTarget(cmd, 5) # 5 second fade
+
+def HenHouseIlluminator(msg):
+    try:
+        cmd = json.loads(msg.payload)
+    except:
+        logger.warn("Unable to decode hen house illuminator command: {}".format(msg.payload))
+    else:
+        if not (cmd >= 0.0 and cmd <= 1.0):
+            logger.warn("Invalid hen house illuminator command: {}".format(cmd))
+        else:
+            hen_illuminator.set(cmd)
 
 def Automate(mqtt_connect_args):
     "Run the automation main loop"

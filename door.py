@@ -24,6 +24,7 @@ class Door:
     
     def __init__(self, pi, in1, in2, closed_sw, open_sw, client, door_status_topic):
         "Sets up the door logic with motor driver in1 and in2 and closed and open microswitches"
+        self.enabled = False
         self.pi = pi
         self.motor = Motor(pi, in1, in2)
         pi.set_mode(closed_sw, pigpio.INPUT)
@@ -37,8 +38,10 @@ class Door:
         self.logger = logging.getLogger(__name__)
         self.client = client
         self.door_status_topic = door_status_topic
+        self.enabled = True
     
     def __del__(self):
+        self.enabled = False
         self.stop()
     
     def stop(self):
@@ -98,7 +101,9 @@ class Door:
     
     def open(self, speed=1.0):
         "Trigger the door to open, optionally set a multiple of normal speed."
-        if self.pi.read(self.open_sw) == 0:
+        if not self.enabled:
+            return
+        elif self.pi.read(self.open_sw) == 0:
             self.logger.debug("Door already open")
         else:
             self.pi.callback(self.open_sw, pigpio.FALLING_EDGE, self._open_cb)
@@ -107,10 +112,16 @@ class Door:
             self.logger.debug("Dooor opening")
     
     def close(self, speed=1.0):
-        if self.pi.read(self.closed_sw) == 0:
+        "Trigger the door to close, optionally set a multiple of normal speed"
+        if not self.enabled:
+            return
+        elif self.pi.read(self.closed_sw) == 0:
             self.logger.debug("Door already closed")
         else:
             self.pi.callback(self.closed_sw, pigpio.FALLING_EDGE, self._close_cb)
             self.pi.set_watchdog(self.closed_sw, self.CLOSE_TIMEOUT_MS)
             self.motor.drive(self.CLOSE_SPEED * speed)
             self.logger.debug("Door closing")
+
+    def enable(self, enabled):
+        self.enabled = enabled

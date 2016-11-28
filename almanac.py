@@ -23,7 +23,7 @@ class AlmanacCallback:
             after  = True if self.after  is True else a[self.after[0]]  + self.after[1]  > now
             before = True if self.before is True else a[self.before[0]] + self.before[1] < now
             if after and before:
-                self.callback():
+                self.callback()
                 self.done = True
 
 class SunScheduler:

@@ -17,16 +17,12 @@ class Light(object):
         else:
             self.scales = tuple(scales)
         if phases is None:
-            num = len(self.gpios)
+            num = len(self.gpio)
             self.phase = tuple((float(i)/num for i in range(num)))
         else:
             self.phase = tuple(phases)
         self.set([0] * len(gpios))
         
-    def __del__(self):
-        for pin in self.gpio:
-            self.pi.set_PWM_dutycycle(pin, 0)
-    
     def set(self, *vals):
         self._target = vals
         for pin, scale, phase, val in zip(self.gpio, self.scales, self.phase, vals):
@@ -72,10 +68,7 @@ class Dimmer(object):
         self.scale  = max_pwm - min_pwm
         self._max_power = 1.0
         self.set(0)
-    
-    def __del__(self):
-        self.pi.set_PWM_dutycycle(self.gpio, 0)
-    
+        
     def clamp(self, val):
         "Sets a maximum output power command"
         self._max_power = val

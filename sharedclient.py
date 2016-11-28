@@ -39,7 +39,7 @@ class SharedClient(mqtt.Client):
                 needToSubscribe = False
             sub.append(callback)
         else:
-            self._subscriptions[topic] = Subscription(topic, qos, [callback])
+            self._subscriptions[topic] = self.Subscription(topic, qos, [callback])
         if self._connected and needToSubscribe:
             sub = self._subscriptions[topic]
             mqtt.Client.subscribe(self, sub.topic, sub.qos)

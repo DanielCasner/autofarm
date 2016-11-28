@@ -13,7 +13,7 @@ import argparse
 import logging
 import datetime
 from PCA9685_pigpio import *
-from door import Door
+from door import *
 from thermostat import Thermostat
 import candle
 import lights
@@ -21,8 +21,8 @@ import health
 import almanac
 from sharedclient import SharedClient, topic_join
 
-DOOR_OPEN_SW     = 
-DOOR_CLOSED_SW   = 
+DOOR_OPEN_SW     = COOP_OPEN_SW
+DOOR_CLOSED_SW   = COOP_CLOSED_SW
 EXTERIOR_LIGHTS  = (4 + PCA9685Pi.EXTENDER_OFFSET,
                     5 + PCA9685Pi.EXTENDER_OFFSET,
                     6 + PCA9685Pi.EXTENDER_OFFSET)
@@ -32,10 +32,10 @@ BROODER_HEATER   =  8 + PCA9685Pi.EXTENDER_OFFSET
 BROODER_COOLER   =  9 + PCA9685Pi.EXTENDER_OFFSET
 HEN_HOUSE_HEATER = 10 + PCA9685Pi.EXTENDER_OFFSET
 HEN_HOUSE_COOLER = 11 + PCA9685Pi.EXTENDER_OFFSET
-DOOR_MOT_IN2     = 12 + PCA9685Pi.EXTENDER_OFFSET
-DOOR_MOT_IN1     = 13 + PCA9685Pi.EXTENDER_OFFSET
-DEBUG_LED1       = 14 + PCA9685Pi.EXTENDER_OFFSET
-DEBUG_LED2       = 15 + PCA9685Pi.EXTENDER_OFFSET
+DOOR_MOT_IN2     = COOP_MOT_IN2
+DOOR_MOT_IN1     = COOP_MOT_IN1
+DEBUG_LED1       = 0xc + PCA9685Pi.EXTENDER_OFFSET
+DEBUG_LED2       = 0xd + PCA9685Pi.EXTENDER_OFFSET
 
 # Mains dimmers run backwards
 DIMMER_MAX_PWM = 0
@@ -54,16 +54,13 @@ def InitalizeHardware():
     global pi
     pi = PCA9685Pi()
     pi.set_PWM_frequency(PCA9685Pi.EXTENDER_OFFSET, 28000) # Required for Fan control, should be okay for everything else
-    # Debugging LEDs
-    logger.debug("Setting up debug LEDs")
-    global debug_LEDs
-    debug_LEDs = (lights.Light(pi, [DEBUG_LED1], [PCA9685Pi.MAX_PWM]), lights.Light(pi, [DEBUG_LED2], [PCA9685Pi.MAX_PWM]))
     # Hen house door
     logger.debug("Setting up hen door")
     global hen_door
-    hen_door = door.Door(pi, DOOR_MOT_IN1, DOOR_MOT_IN2, DOOR_CLOSED_SW, DOOR_OPEN_SW, mqtt_client, topic_join(base_topic, "door", "status"))
-    sun_scheduler.addEvent(('sunrise', datetime.timedelta(0)), door.open)
-    sun_scheduler.addEvent(('dusk',    datetime.timedelta(0)), door.close)
+    hen_door = Door(pi, DOOR_MOT_IN1, DOOR_MOT_IN2, DOOR_CLOSED_SW, DOOR_OPEN_SW, mqtt_client, topic_join(base_topic, "door", "status"))
+    sun_scheduler.addEvent(('sunrise', datetime.timedelta(0)), hen_door.open)
+    sun_scheduler.addEvent(('dusk',    datetime.timedelta(0)), hen_door.close)
+    return
     # Hen house SAD lamp
     logger.debug("Setting up hen house light")
     global hen_lamp
@@ -128,7 +125,7 @@ def Automate(mqtt_connect_args):
     mqtt_client.connect(*mqtt_connect_args)
     InitalizeHardware()
     mqtt_client.subscribe(topic_join(base_topic, "door", "command"), 1, DoorCommand)
-    mqtt_client.subscribe(topic_join(base_topic, "house_light", "brightness", 1, HenHouseLightCommand))
+    #mqtt_client.subscribe(topic_join(base_topic, "house_light", "brightness", 1, HenHouseLightCommand))
     logger.debug("Entering main loop")
     try:
         while True:
@@ -141,7 +138,7 @@ def Automate(mqtt_connect_args):
     mqtt_client.loop_stop()
 
 if __name__ == '__main__':
-    parser = ArgumentParser()
+    parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--clientID", type=str, default="", help="MQTT client ID for the counter node")
     parser.add_argument("-b", "--brokerHost", type=str, default="localhost", help="MQTT Broker hostname or IP address")
     parser.add_argument('-p', "--brokerPort", type=int, help="MQTT Broker port")
@@ -158,6 +155,6 @@ if __name__ == '__main__':
     base_topic = args.topic
     mqtt_client = SharedClient(args.clientID, not args.clientID)
     hmon = health.HealthMonitor()
-    sun_scheduler = SunScheduler(args.location)
+    sun_scheduler = almanac.SunScheduler(args.location)
 
-    Automate(mqtt_connect_args)
+    Automate(brokerConnect)

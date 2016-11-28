@@ -79,44 +79,49 @@ def InitalizeHardware():
     sun_scheduler.addEvent(after = ('sunset', datetime.timedelta(0)),
                                     callback = lambda: hen_illuminator.set(0.25))
 
-def DoorCommand(msg):
+def ParsePayload(msg, lb=None, ub=None, options=None):
     try:
         cmd = json.loads(msg.payload)
     except:
-        logger.warn("Unable to decode door command: {}".format(msg.payload))
+        logger.warn("Unable to parse payload of message on topic \"{0.topic}\": {0.payload}".format(msg))
+        return None
     else:
-        if cmd == 'OPEN':
-            hen_door.open()
-        elif cmd == 'CLOSE':
-            hen_door.close()
-        elif cmd == 'ENABLE':
-            hen_door.enable(True)
-        elif cmd == 'DISABLE':
-            hen_door.enable(False)
+        if options:
+            if not cmd in options:
+                logger.warn("Invalid command of message on topic \"{0.topic}\" (options are {1!r}): {0.payload}".format(msg, options))
+                return None
+            else:
+                return cmd
         else:
-            logger.warn("Invalid door command: {}".format(cmd))
+            if lb is not None and cmd < lb:
+                logger.warn("Command for topic {}, {} < lower bound {}".format(msg.topic, cmd, lb))
+                return None
+            elif ub is not None and cmd > ub:
+                logger.warn("Command for topic {}, {} > upper bound {}".format(msg.topic, cmd, ub))
+                return None
+            else:
+                return cmd
+
+def DoorCommand(msg):
+    cmd = ParsePayload(msg, options=["OPEN", "CLOSE", "ENABLE", "DISABLE"])
+    if cmd == 'OPEN':
+        hen_door.open()
+    elif cmd == 'CLOSE':
+        hen_door.close()
+    elif cmd == 'ENABLE':
+        hen_door.enable(True)
+    elif cmd == 'DISABLE':
+        hen_door.enable(False)
 
 def HenHouseLightCommand(msg):
-    try:
-        cmd = json.loads(msg.payload)
-    except:
-        logger.warn("Unable to decode hen house light command: {}".format(msg.payload))
-    else:
-        if not (cmd >= 0.0 and cmd <= 1.0):
-            logger.warn("Invalid hen house light command: {}".format(cmd))
-        else:
-            hen_lamp.setTarget(cmd, 5) # 5 second fade
+    cmd = ParsePayload(msg)
+    if cmd is not None:
+        hen_lamp.setTarget(cmd, 5) # 5 second fade
 
 def HenHouseIlluminator(msg):
-    try:
-        cmd = json.loads(msg.payload)
-    except:
-        logger.warn("Unable to decode hen house illuminator command: {}".format(msg.payload))
-    else:
-        if not (cmd >= 0.0 and cmd <= 1.0):
-            logger.warn("Invalid hen house illuminator command: {}".format(cmd))
-        else:
-            hen_illuminator.set(cmd)
+    cmd = ParsePayload(msg)
+    if cmd is not None:
+        hen_illuminator.set(cmd)
 
 def Automate(mqtt_connect_args):
     "Run the automation main loop"

@@ -28,6 +28,12 @@ class Door:
     LATCH_DURATION    =  1.0
     GLITCH_FILTER_µs  = 3000
     
+    DISABLED = -1
+    IDLE     = 0
+    OPENING  = 1
+    CLOSING  = 2
+    LATCHING = 3
+    
     def __init__(self, pi, in1, in2, closed_sw, open_sw, client, door_status_topic):
         "Sets up the door logic with motor driver in1 and in2 and closed and open microswitches"
         self.enabled = False
@@ -44,7 +50,9 @@ class Door:
         self.logger = logging.getLogger(__name__)
         self.client = client
         self.door_status_topic = door_status_topic
-        self.enabled = True
+        self.state = self.IDLE
+        self.pi.callback(self.open_sw,   pigpio.RISING_EDGE, self._open_cb)
+        self.pi.callback(self.closed_sw, pigpio.RISING_EDGE, self._close_cb)
     
     def __del__(self):
         self.enabled = False
@@ -54,7 +62,7 @@ class Door:
         self.motor.stop()
         self.pi.set_watchdog(self.open_sw,   0)
         self.pi.set_watchdog(self.closed_sw, 0)
-        self.check_status_and_publsh()
+        self.check_status_and_publish()
     
     def publish_open(self):
         self.client.publish(self.door_status_topic, self.DOOR_OPEN_TOKEN, qos=1, retain=True)
@@ -65,7 +73,7 @@ class Door:
     def publish_ajar(self):
         self.client.publish(self.door_status_topic, self.DOOR_AJAR_TOKEN, qos=1, retain=True)
     
-    def check_status_and_publsh(self):
+    def check_status_and_publish(self):
         if self.pi.read(self.open_sw) == 0:
             self.publish_open()
         elif self.pi.read(self.closed_sw) == 0:
@@ -87,14 +95,17 @@ class Door:
         else:
             self.stop()
             self.logger.error("Unexpected door open switch status: {}".format(level))
+        self.state = self.IDLE
+            
     
     def _close_cb(self, gpio, level, tick):
         "Callback when closed_sw is triggered"
         if level == 1:
             # Door finished closing
             self.pi.set_watchdog(self.closed_sw, 0)
-            self.motor.drive(self.LATCH_SPEED)
-            time.sleep(self.LATCH_DURATION)
+            if self.state is self.CLOSING:
+                self.motor.drive(self.LATCH_SPEED)
+                time.sleep(self.LATCH_DURATION)
             self.motor.stop()
             self.logger.debug("Door now closed")
             self.publish_closed()
@@ -104,35 +115,35 @@ class Door:
         else:
             self.stop()
             self.logger.error("Unexpected door close switch status: {}".format(level))
+        self.state = self.IDLE
     
     def open(self, speed=1.0):
         "Trigger the door to open, optionally set a multiple of normal speed."
-        if not self.enabled:
+        if self.state is self.DISABLED:
             return
-        elif self.pi.read(self.open_sw) == 1:
+        elif self.pi.read(self.open_sw):
             self.logger.debug("Door already open")
         else:
-            self.pi.callback(self.open_sw, pigpio.RISING_EDGE, self._open_cb)
+            self.state = self.OPENING
             self.pi.set_watchdog(self.open_sw, self.OPEN_TIMEOUT_MS)
             self.motor.drive(self.OPEN_SPEED * speed)
             self.logger.debug("Door opening")
     
     def close(self, speed=1.0):
         "Trigger the door to close, optionally set a multiple of normal speed"
-        if not self.enabled:
+        if self.state is self.DISABLED:
             return
-        elif self.pi.read(self.closed_sw) == 1:
+        elif self.pi.read(self.closed_sw):
             self.logger.debug("Door already closed")
         else:
-            self.pi.callback(self.closed_sw, pigpio.RISING_EDGE, self._close_cb)
+            self.state = self.CLOSING
             self.pi.set_watchdog(self.closed_sw, self.CLOSE_TIMEOUT_MS)
             self.motor.drive(self.CLOSE_SPEED * speed)
             self.logger.debug("Door closing")
 
     def enable(self, enabled):
-        self.enabled = enabled
+        self.state = self.IDLE if enabled else self.DISABLED
 
-        
 if __name__ == '__main__':
     import sys
     import time

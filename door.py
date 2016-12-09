@@ -21,7 +21,7 @@ class Door:
     DOOR_CLOSED_TOKEN = json.dumps("CLOSED")
     DOOR_AJAR_TOKEN   = json.dumps('AJAR')
     OPEN_TIMEOUT_MS   = 20000
-    CLOSE_TIMEOUT_MS  = 20000
+    CLOSE_TIMEOUT_MS  = 27000
     OPEN_SPEED        = -1.0
     CLOSE_SPEED       =  0.5
     LATCH_SPEED       =  1.0

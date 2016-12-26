@@ -25,7 +25,7 @@ class Door:
     OPEN_SPEED        = -1.0
     CLOSE_SPEED       =  0.5
     LATCH_SPEED       =  1.0
-    LATCH_DURATION    =  1.0
+    LATCH_DURATION    =  3.0
     GLITCH_FILTER_µs  = 3000
     
     DISABLED = -1

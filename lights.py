@@ -21,7 +21,7 @@ class Light(object):
             self.phase = tuple((float(i)/num for i in range(num)))
         else:
             self.phase = tuple(phases)
-        self.set([0] * len(gpios))
+        self.set(*([0] * len(gpios)))
         
     def set(self, *vals):
         self._target = vals
@@ -31,7 +31,7 @@ class Light(object):
     def get(self):
         return self._target
 
-class SlowLinearFasder(Light):
+class SlowLinearFader(Light):
     "A light object that supports slow fading"
     
     def __init__(self, *a, **kw):
@@ -54,7 +54,8 @@ class SlowLinearFasder(Light):
             delta = now - self.start_time
             progress = delta / (self.end_time - self.start_time)
             interpolation = [sv * (1.0 - progress) + ev * (progress) for sv, ev in zip(self.start_val, self.end_val)]
-            self.set(interpolation)
+            self.set(*interpolation)
+            return interpolation
         # else should make sure final value is set but not worth the trouble
         
 
@@ -83,3 +84,47 @@ class Dimmer(object):
             val = self._max_power
         self.pi.set_PWM_dutycycle(self.gpio, (val * self.scale) + self.offset, self.phase)
         self._output = val
+
+
+if __name__ == '__main__':
+    # Unit tests
+    import sys
+    class SpyPi:
+        def __init__(self):
+            self.expect = None
+        def expect_pwm_cmd(self, *args):
+            self.expect = args
+        def set_PWM_dutycycle(self, *args):
+            assert args == self.expect, "FAIL: set_PWM_dutycycle expected {!r} but got {!r}".format(self.expect, args)
+    class DummyPi:
+        def __init__(self, verbose=True):
+            self.verbose = verbose
+        def set_PWM_dutycycle(self, *args):
+            if self.verbose:
+                print("Set PWM:", repr(args))
+
+    if "dimmer" in sys.argv:
+        pi = DummyPi(False)
+        l = SlowLinearFader(pi, [0], [4095])
+        print(next(l))
+        l.setTarget(10, [1.0])
+        t = time.time()
+        while time.time() < t + 10:
+            print(next(l))
+        l.setTarget(1, [0.1])
+        t = time.time()
+        while time.time() < t + 2:
+            print(next(l))
+        
+    else:
+        pi = SpyPi()
+        pi.expect_pwm_cmd(0, 0.0, 0.0)
+        l = Light(pi, [0])
+        pi.expect_pwm_cmd(0, 1, 0)
+        l.set(1)
+        pi.expect_pwm_cmd(0, 0, 1)
+        l = Light(pi, [0], [100], [1])
+        pi.expect_pwm_cmd(0, 100, 1)
+        l.set(1)
+        
+        print("PASS")

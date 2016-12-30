@@ -6,6 +6,7 @@ Logic for controlling the chicken coop door.
 import pigpio
 import logging
 import json
+import time
 from DRV8871 import Motor
 
 COOP_OPEN_SW   = 17
@@ -20,8 +21,8 @@ class Door:
     DOOR_OPEN_TOKEN   = json.dumps("OPEN")
     DOOR_CLOSED_TOKEN = json.dumps("CLOSED")
     DOOR_AJAR_TOKEN   = json.dumps('AJAR')
-    OPEN_TIMEOUT_MS   = 20000
-    CLOSE_TIMEOUT_MS  = 27000
+    OPEN_TIMEOUT      = 20
+    CLOSE_TIMEOUT     = 27
     OPEN_SPEED        = -1.0
     CLOSE_SPEED       =  0.5
     LATCH_SPEED       =  1.0
@@ -50,59 +51,27 @@ class Door:
         self.logger = logging.getLogger(__name__)
         self.client = client
         self.door_status_topic = door_status_topic
-        self.state = self.IDLE
-        self.pi.callback(self.open_sw,   pigpio.RISING_EDGE, self._open_cb)
-        self.pi.callback(self.closed_sw, pigpio.RISING_EDGE, self._close_cb)
     
     def __del__(self):
         self.enabled = False
         self.stop()
     
-    def stop(self):
-        self.motor.stop()
-        self.pi.set_watchdog(self.open_sw,   0)
-        self.pi.set_watchdog(self.closed_sw, 0)
-        self.check_status_and_publish()
-    
-    def publish_open(self):
-        self.client.publish(self.door_status_topic, self.DOOR_OPEN_TOKEN, qos=1, retain=True)
-        
-    def publish_closed(self):
-        self.client.publish(self.door_status_topic, self.DOOR_CLOSED_TOKEN, qos=1, retain=True)
-        
-    def publish_ajar(self):
-        self.client.publish(self.door_status_topic, self.DOOR_AJAR_TOKEN, qos=1, retain=True)
-    
     def check_status_and_publish(self):
         if self.pi.read(self.open_sw) == 0:
-            self.publish_open()
+            self.client.publish(self.door_status_topic, self.DOOR_OPEN_TOKEN, qos=1, retain=True)
         elif self.pi.read(self.closed_sw) == 0:
-            self.publish_closed()
+            self.client.publish(self.door_status_topic, self.DOOR_CLOSED_TOKEN, qos=1, retain=True)
         else:
-            self.publish_ajar()
+            self.client.publish(self.door_status_topic, self.DOOR_AJAR_TOKEN, qos=1, retain=True)
     
-    def _open_cb(self, gpio, level, tick):
-        "Callback when open_sw is triggered"
-        if level == 1:
-            # Door finished opening
-            self.motor.stop()
-            self.pi.set_watchdog(self.open_sw, 0)
-            self.logger.debug("Door now open")
-            self.publish_open()
-        elif level == pigpio.TIMEOUT:
-            self.stop()
-            self.logger.warn("Door did not open in time")
-        else:
-            self.stop()
-            self.logger.error("Unexpected door open switch status: {}".format(level))
-        self.state = self.IDLE
-            
+    def stop(self):
+        self.motor.stop()
+        self.check_status_and_publish()
     
     def _close_cb(self, gpio, level, tick):
         "Callback when closed_sw is triggered"
         if level == 1:
             # Door finished closing
-            self.pi.set_watchdog(self.closed_sw, 0)
             if self.state is self.CLOSING:
                 self.motor.drive(self.LATCH_SPEED)
                 time.sleep(self.LATCH_DURATION)
@@ -122,35 +91,50 @@ class Door:
         if self.state is self.DISABLED:
             return
         elif self.pi.read(self.open_sw):
-            self.logger.debug("Door already open")
+            self.logger.info("Door already open")
         else:
-            self.state = self.OPENING
-            self.pi.set_watchdog(self.open_sw, self.OPEN_TIMEOUT_MS)
+            start_time = time.time()
             self.motor.drive(self.OPEN_SPEED * speed)
             self.logger.debug("Door opening")
+            while time.time() < start_time + self.OPEN_TIMEOUT:
+                if self.pi.read(self.open_sw):
+                    self.stop()
+                    self.logger.info("Door now open")
+                    break
+            else:
+                self.stop()
+                self.logger.debug("Door did not open in time")
+            
     
     def close(self, speed=1.0):
         "Trigger the door to close, optionally set a multiple of normal speed"
         if self.state is self.DISABLED:
             return
         elif self.pi.read(self.closed_sw):
-            self.logger.debug("Door already closed")
+            self.logger.info("Door already closed")
         else:
-            self.state = self.CLOSING
-            self.pi.set_watchdog(self.closed_sw, self.CLOSE_TIMEOUT_MS)
+            start_time = time.time()
             self.motor.drive(self.CLOSE_SPEED * speed)
             self.logger.debug("Door closing")
+            while time.time() < start_time + self.CLOSE_TIMEOUT:
+                if self.pi.read(self.closed_sw):
+                    self.stop()
+                    self.logger.info("Door now closed")
+                    break
+            else:
+                self.stop()
+                self.logger.debug("Door did not open in time")
 
     def enable(self, enabled):
         self.state = self.IDLE if enabled else self.DISABLED
 
 if __name__ == '__main__':
     import sys
-    import time
     import PCA9685_pigpio
+    logging.basicConfig(level=logging.DEBUG)
     class DummyClient:
         def publish(self, *args, **kwargs):
-            pass
+            print("MQTT Publish:", repr(args), repr(kwargs))
 
     pi = PCA9685_pigpio.PCA9685Pi()
     door = Door(pi, COOP_MOT_IN1, COOP_MOT_IN2, COOP_CLOSED_SW, COOP_OPEN_SW, DummyClient(), "DUMMY_DOOR")
@@ -158,9 +142,5 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         if sys.argv[1] == "open":
             door.open()
-            time.sleep(door.OPEN_TIMEOUT_MS/1000.0)
         elif sys.argv[1] == "close":
             door.close()
-            time.sleep(door.CLOSE_TIMEOUT_MS/1000.0)
-
-    door.stop()

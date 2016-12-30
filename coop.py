@@ -58,26 +58,26 @@ def InitalizeHardware():
     logger.debug("Setting up hen door")
     global hen_door
     hen_door = Door(pi, DOOR_MOT_IN1, DOOR_MOT_IN2, DOOR_CLOSED_SW, DOOR_OPEN_SW, mqtt_client, topic_join(base_topic, "door", "status"))
-    sun_scheduler.addEvent(('sunrise', datetime.timedelta(0)), hen_door.open)
-    sun_scheduler.addEvent(('dusk',    datetime.timedelta(0)), hen_door.close)
-    return
+    hen_door.enable(False)
+    sun_scheduler.addEvent(hen_door.open,  ('sunrise', datetime.timedelta(0)))
+    sun_scheduler.addEvent(hen_door.close, ('dusk',    datetime.timedelta(0)))
     # Hen house SAD lamp
     logger.debug("Setting up hen house light")
     global hen_lamp
     hen_lamp = lights.SlowLinearFasder(pi, [HEN_HOUSE_LIGHT], [PCA9685Pi.MAX_PWM], [0])
-    sun_scheduler.addEvent(after  = ('noon', datetime.timedelta(hours=-7)),
+    sun_scheduler.addEvent(lambda: hen_lamp.setTarget(1.0, 45*60),
+                           after  = ('noon', datetime.timedelta(hours=-7)),
                            before = ('dawn', datetime.timedelta(0)), # Only turn on light if less than 14 hours of daylight
-                           callback = lambda: hen_lamp.setTarget(1.0, 45*60))
-    sun_scheduler.addEvent(after  = ('noon', datetime.timedelta(hours=6, minutes=15)), # Always let hens sleep
-                           callback = lambda: hen_lamp.setTarget(0.0, 45*60))
+                           )
+    sun_scheduler.addEvent(lambda: hen_lamp.setTarget(0.0, 45*60),
+                           after  = ('noon', datetime.timedelta(hours=6, minutes=15)), # Always let hens sleep
+                           )
     # Camera IR Illuminator
     logger.debug("Setting up hen house camera IR illuminator")
     global hen_illuminator
     hen_illuminator = lights.Light(pi, [HEN_HOUSE_IR], [PCA9685Pi.MAX_PWM])
-    sun_scheduler.addEvent(after = ('sunrise', datetime.timedelta(0)),
-                                    callback = lambda: hen_illuminator.set(0.00))
-    sun_scheduler.addEvent(after = ('sunset', datetime.timedelta(0)),
-                                    callback = lambda: hen_illuminator.set(0.25))
+    sun_scheduler.addEvent(lambda: hen_illuminator.set(0.00), ('sunrise', datetime.timedelta(0)))
+    sun_scheduler.addEvent(lambda: hen_illuminator.set(0.25), ('sunset', datetime.timedelta(0)))
 
 def ParsePayload(msg, lb=None, ub=None, options=None):
     try:
@@ -130,7 +130,7 @@ def Automate(mqtt_connect_args):
     mqtt_client.connect(*mqtt_connect_args)
     InitalizeHardware()
     mqtt_client.subscribe(topic_join(base_topic, "door", "command"), 1, DoorCommand)
-    #mqtt_client.subscribe(topic_join(base_topic, "house_light", "brightness", 1, HenHouseLightCommand))
+    mqtt_client.subscribe(topic_join(base_topic, "house_light", "brightness", 1, HenHouseLightCommand))
     logger.debug("Entering main loop")
     try:
         while True:

@@ -150,8 +150,12 @@ if __name__ == '__main__':
     parser.add_argument('-k', "--brokerKeepAlive", type=int, help="MQTT keep alive seconds")
     parser.add_argument('-n', "--bind", type=str, help="Local interface to bind to for connection to broker")
     parser.add_argument('-t', "--topic", type=str, default="coop", help="Base MQTT topic")
+    parser.add_argument('-v', "--verbose", help="More verbose debugging output")
     parser.add_argument("location", type=argparse.FileType('rb'), help="Pickle file containing an Astral location instance for almanac")
     args = parser.parse_args()
+    
+    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARN)
+    
     brokerConnect = [args.brokerHost]
     if args.brokerPort: brokerConnect.append(args.brokerPort)
     if args.brokerKeepAlive: brokerConnect.append(args.brokerKeepAlive)

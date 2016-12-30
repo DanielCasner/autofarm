@@ -68,27 +68,9 @@ class Door:
         self.motor.stop()
         self.check_status_and_publish()
     
-    def _close_cb(self, gpio, level, tick):
-        "Callback when closed_sw is triggered"
-        if level == 1:
-            # Door finished closing
-            if self.state is self.CLOSING:
-                self.motor.drive(self.LATCH_SPEED)
-                time.sleep(self.LATCH_DURATION)
-            self.motor.stop()
-            self.logger.debug("Door now closed")
-            self.publish_closed()
-        elif level == pigpio.TIMEOUT:
-            self.stop()
-            self.logger.warn("Door did not close in time")
-        else:
-            self.stop()
-            self.logger.error("Unexpected door close switch status: {}".format(level))
-        self.state = self.IDLE
-    
     def open(self, speed=1.0):
         "Trigger the door to open, optionally set a multiple of normal speed."
-        if self.state is self.DISABLED:
+        if not self.enabled
             return
         elif self.pi.read(self.open_sw):
             self.logger.info("Door already open")
@@ -108,7 +90,7 @@ class Door:
     
     def close(self, speed=1.0):
         "Trigger the door to close, optionally set a multiple of normal speed"
-        if self.state is self.DISABLED:
+        if not self.enabled:
             return
         elif self.pi.read(self.closed_sw):
             self.logger.info("Door already closed")
@@ -126,7 +108,7 @@ class Door:
                 self.logger.debug("Door did not open in time")
 
     def enable(self, enabled):
-        self.state = self.IDLE if enabled else self.DISABLED
+        self.enabled = enabled
 
 if __name__ == '__main__':
     import sys

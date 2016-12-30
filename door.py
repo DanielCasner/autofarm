@@ -52,9 +52,9 @@ class Door:
         self.stop()
     
     def check_status_and_publish(self):
-        if self.pi.read(self.open_sw) == 0:
+        if self.pi.read(self.open_sw):
             self.client.publish(self.door_status_topic, self.DOOR_OPEN_TOKEN, qos=1, retain=True)
-        elif self.pi.read(self.closed_sw) == 0:
+        elif self.pi.read(self.closed_sw):
             self.client.publish(self.door_status_topic, self.DOOR_CLOSED_TOKEN, qos=1, retain=True)
         else:
             self.client.publish(self.door_status_topic, self.DOOR_AJAR_TOKEN, qos=1, retain=True)

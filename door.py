@@ -28,16 +28,10 @@ class Door:
     LATCH_SPEED       =  1.0
     LATCH_DURATION    =  3.0
     GLITCH_FILTER_µs  = 3000
-    
-    DISABLED = -1
-    IDLE     = 0
-    OPENING  = 1
-    CLOSING  = 2
-    LATCHING = 3
-    
+        
     def __init__(self, pi, in1, in2, closed_sw, open_sw, client, door_status_topic):
         "Sets up the door logic with motor driver in1 and in2 and closed and open microswitches"
-        self.enabled = False
+        self.enabled = True
         self.pi = pi
         self.motor = Motor(pi, in1, in2)
         pi.set_mode(closed_sw, pigpio.INPUT)
@@ -51,6 +45,7 @@ class Door:
         self.logger = logging.getLogger(__name__)
         self.client = client
         self.door_status_topic = door_status_topic
+        time.sleep(0.1)
     
     def __del__(self):
         self.enabled = False
@@ -70,7 +65,7 @@ class Door:
     
     def open(self, speed=1.0):
         "Trigger the door to open, optionally set a multiple of normal speed."
-        if not self.enabled
+        if not self.enabled:
             return
         elif self.pi.read(self.open_sw):
             self.logger.info("Door already open")
@@ -100,6 +95,9 @@ class Door:
             self.logger.debug("Door closing")
             while time.time() < start_time + self.CLOSE_TIMEOUT:
                 if self.pi.read(self.closed_sw):
+                    self.motor.drive(self.LATCH_SPEED * speed)
+                    self.logger.debug("Latching")
+                    time.sleep(self.LATCH_DURATION)
                     self.stop()
                     self.logger.info("Door now closed")
                     break
@@ -118,7 +116,11 @@ if __name__ == '__main__':
         def publish(self, *args, **kwargs):
             print("MQTT Publish:", repr(args), repr(kwargs))
 
+
+    print("Initalizing PI")
     pi = PCA9685_pigpio.PCA9685Pi()
+
+    print("Initalizing Door")
     door = Door(pi, COOP_MOT_IN1, COOP_MOT_IN2, COOP_CLOSED_SW, COOP_OPEN_SW, DummyClient(), "DUMMY_DOOR")
 
     if len(sys.argv) > 1:
@@ -126,3 +128,5 @@ if __name__ == '__main__':
             door.open()
         elif sys.argv[1] == "close":
             door.close()
+
+    del door

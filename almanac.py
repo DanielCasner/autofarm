@@ -51,7 +51,7 @@ class SunScheduler:
     
     def updateDay(self, today=None):
         if today is None:
-            today = datetime.datetime.now(self.location.tz)
+            today = datetime.datetime.now(self.location.tz).date()
         self.today = today
         self.logger.info("Update day, today is now {0!s}".format(self.today))
         self.sun = self.location.sun(self.today)

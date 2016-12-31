@@ -66,6 +66,7 @@ class Door:
     def open(self, speed=1.0):
         "Trigger the door to open, optionally set a multiple of normal speed."
         if not self.enabled:
+            self.logger.info("Door open not enabled")
             return
         elif self.pi.read(self.open_sw):
             self.logger.info("Door already open")
@@ -80,12 +81,13 @@ class Door:
                     break
             else:
                 self.stop()
-                self.logger.debug("Door did not open in time")
+                self.logger.warn("Door did not open in time")
             
     
     def close(self, speed=1.0):
         "Trigger the door to close, optionally set a multiple of normal speed"
         if not self.enabled:
+            self.logger.info("Door close not enabled")
             return
         elif self.pi.read(self.closed_sw):
             self.logger.info("Door already closed")
@@ -103,7 +105,7 @@ class Door:
                     break
             else:
                 self.stop()
-                self.logger.debug("Door did not open in time")
+                self.logger.warn("Door did not open in time")
 
     def enable(self, enabled):
         self.enabled = enabled

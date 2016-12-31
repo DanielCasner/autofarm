@@ -60,7 +60,6 @@ def InitalizeHardware():
     logger.debug("Setting up hen door")
     global hen_door
     hen_door = Door(pi, DOOR_MOT_IN1, DOOR_MOT_IN2, DOOR_CLOSED_SW, DOOR_OPEN_SW, mqtt_client, topic_join(base_topic, "door", "status"))
-    hen_door.enable(False)
     sun_scheduler.addEvent(hen_door.open,  ('sunrise', datetime.timedelta(0)))
     sun_scheduler.addEvent(hen_door.close, ('dusk',    datetime.timedelta(0)))
     # Hen house SAD lamp
@@ -82,7 +81,9 @@ def InitalizeHardware():
     #sun_scheduler.addEvent(lambda: hen_illuminator.set(0.25), ('sunset', datetime.timedelta(0)))
 
 def CleanupHardware():
+    global hen_door
     del hen_door
+    global hen_lamp
     del hen_lamp
 
 def ParsePayload(msg, lb=None, ub=None, options=None):

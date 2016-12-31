@@ -33,7 +33,7 @@ class SharedClient(mqtt.Client):
         if topic in self._subscriptions:
             sub = self._subscriptions[topic]
             if qos > sub.qos:
-                mqtt.Client.unsubscribe(topic)
+                mqtt.Client.unsubscribe(self, topic)
                 sub.qos = qos
             else:
                 needToSubscribe = False
@@ -55,7 +55,7 @@ class SharedClient(mqtt.Client):
         "Callback on MQTT connection"
         self._connected = True
         if len(self._subscriptions):
-            mqtt.Client.subscribe([(s.topic, s.qos) for s in self._subscriptions.values()])
+            mqtt.Client.subscribe(self, [(s.topic, s.qos) for s in self._subscriptions.values()])
         
     def on_disconnect(self, client, userdata, rc):
         self._connected = False

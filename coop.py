@@ -28,10 +28,10 @@ EXTERIOR_LIGHTS  = (-1 + PCA9685Pi.EXTENDER_OFFSET,
                    -1 + PCA9685Pi.EXTENDER_OFFSET)
 HEN_HOUSE_IR     = -1 + PCA9685Pi.EXTENDER_OFFSET
 HEN_HOUSE_LIGHT  =  5 + PCA9685Pi.EXTENDER_OFFSET
-BROODER_HEATER   =  8 + PCA9685Pi.EXTENDER_OFFSET
-BROODER_COOLER   =  9 + PCA9685Pi.EXTENDER_OFFSET
-HEN_HOUSE_HEATER = 10 + PCA9685Pi.EXTENDER_OFFSET
-HEN_HOUSE_COOLER = 11 + PCA9685Pi.EXTENDER_OFFSET
+BROODER_HEATER   = -1 + PCA9685Pi.EXTENDER_OFFSET
+BROODER_COOLER   = -1 + PCA9685Pi.EXTENDER_OFFSET
+HEN_HOUSE_HEATER = -1 + PCA9685Pi.EXTENDER_OFFSET
+HEN_HOUSE_COOLER = -1 + PCA9685Pi.EXTENDER_OFFSET
 DOOR_MOT_IN2     = COOP_MOT_IN2
 DOOR_MOT_IN1     = COOP_MOT_IN1
 DEBUG_LED1       = 0xc + PCA9685Pi.EXTENDER_OFFSET
@@ -40,6 +40,8 @@ DEBUG_LED2       = 0xd + PCA9685Pi.EXTENDER_OFFSET
 # Mains dimmers run backwards
 DIMMER_MAX_PWM = 0
 DIMMER_MIN_PWM = 4096
+
+LED_MAX_PWM = 4096
 
 THERMOSTAT_PID = (1.0, 0.0, 0.0, 1.0)
 
@@ -64,20 +66,24 @@ def InitalizeHardware():
     # Hen house SAD lamp
     logger.debug("Setting up hen house light")
     global hen_lamp
-    hen_lamp = lights.SlowLinearFasder(pi, [HEN_HOUSE_LIGHT], [PCA9685Pi.MAX_PWM], [0])
-    sun_scheduler.addEvent(lambda: hen_lamp.setTarget(1.0, 45*60),
+    hen_lamp = lights.SlowLinearFader(pi, [HEN_HOUSE_LIGHT], [LED_MAX_PWM], [0])
+    sun_scheduler.addEvent(lambda: hen_lamp.setTarget(45*60, [0.0]),
                            after  = ('noon', datetime.timedelta(hours=-7)),
                            before = ('dawn', datetime.timedelta(0)), # Only turn on light if less than 14 hours of daylight
                            )
-    sun_scheduler.addEvent(lambda: hen_lamp.setTarget(0.0, 45*60),
+    sun_scheduler.addEvent(lambda: hen_lamp.setTarget(45*60, [0.0]),
                            after  = ('noon', datetime.timedelta(hours=6, minutes=15)), # Always let hens sleep
                            )
     # Camera IR Illuminator
-    logger.debug("Setting up hen house camera IR illuminator")
-    global hen_illuminator
-    hen_illuminator = lights.Light(pi, [HEN_HOUSE_IR], [PCA9685Pi.MAX_PWM])
-    sun_scheduler.addEvent(lambda: hen_illuminator.set(0.00), ('sunrise', datetime.timedelta(0)))
-    sun_scheduler.addEvent(lambda: hen_illuminator.set(0.25), ('sunset', datetime.timedelta(0)))
+    #logger.debug("Setting up hen house camera IR illuminator")
+    #global hen_illuminator
+    #hen_illuminator = lights.Light(pi, [HEN_HOUSE_IR], [PCA9685Pi.MAX_PWM])
+    #sun_scheduler.addEvent(lambda: hen_illuminator.set(0.00), ('sunrise', datetime.timedelta(0)))
+    #sun_scheduler.addEvent(lambda: hen_illuminator.set(0.25), ('sunset', datetime.timedelta(0)))
+
+def CleanupHardware():
+    del hen_door
+    del hen_lamp
 
 def ParsePayload(msg, lb=None, ub=None, options=None):
     try:
@@ -130,7 +136,7 @@ def Automate(mqtt_connect_args):
     mqtt_client.connect(*mqtt_connect_args)
     InitalizeHardware()
     mqtt_client.subscribe(topic_join(base_topic, "door", "command"), 1, DoorCommand)
-    mqtt_client.subscribe(topic_join(base_topic, "house_light", "brightness", 1, HenHouseLightCommand))
+    mqtt_client.subscribe(topic_join(base_topic, "house_light", "brightness"), 1, HenHouseLightCommand)
     logger.debug("Entering main loop")
     try:
         while True:
@@ -140,6 +146,7 @@ def Automate(mqtt_connect_args):
     except KeyboardInterrupt:
         logger.debug("Exiting at sig-exit")
     # Clean up peripherals
+    CleanupHardware()
     mqtt_client.loop_stop()
 
 if __name__ == '__main__':
@@ -150,7 +157,7 @@ if __name__ == '__main__':
     parser.add_argument('-k', "--brokerKeepAlive", type=int, help="MQTT keep alive seconds")
     parser.add_argument('-n', "--bind", type=str, help="Local interface to bind to for connection to broker")
     parser.add_argument('-t', "--topic", type=str, default="coop", help="Base MQTT topic")
-    parser.add_argument('-v', "--verbose", help="More verbose debugging output")
+    parser.add_argument('-v', "--verbose", action="store_true", help="More verbose debugging output")
     parser.add_argument("location", type=argparse.FileType('rb'), help="Pickle file containing an Astral location instance for almanac")
     args = parser.parse_args()
     

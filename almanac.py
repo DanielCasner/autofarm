@@ -5,6 +5,7 @@ Helper classes for scheduling actions around time of day etc.
 import datetime
 import astral
 import pickle
+import logging
 
 class AlmanacCallback:
     "Stores information about a callback for an almanac trigger"
@@ -14,6 +15,10 @@ class AlmanacCallback:
         self.before   = before
         self.callback = callback
         self.done     = False
+        self.logger   = logging.getLogger(repr(self))
+
+    def __repr__(self):
+        return "{0.__class__.__name__}(after={0.after!r}, before={0.before!r}, callback={0.callback!r})".format(self)
 
     def reset(self):
         self.done = False
@@ -23,6 +28,7 @@ class AlmanacCallback:
             after  = True if (self.after  is None) else (now > (a[self.after[0]]  + self.after[1]))
             before = True if (self.before is None) else (now < (a[self.before[0]] + self.before[1]))
             if after and before:
+                self.logger.info("Running")
                 self.callback()
                 self.done = True
 
@@ -37,17 +43,24 @@ class SunScheduler:
             self.location = location
         else:
             raise ValueError("Location must be either an astral.Location or file like object")
+        self.logger = logging.getLogger(repr(self))
         self.updateDay(today)
+    
+    def __repr__(self):
+        return "{0.__class__.__name__}({0.location!r})".format(self)
     
     def updateDay(self, today=None):
         if today is None:
             today = datetime.datetime.now(self.location.tz)
         self.today = today
+        self.logger.info("Update day, today is now {0!s}".format(self.today))
         self.sun = self.location.sun(self.today)
         
     def addEvent(self, callback, after=None, before=None):
         "Register a new callback to trigger on sun time"
-        self.callbacks.append(AlmanacCallback(after, before, callback))
+        acb = AlmanacCallback(after, before, callback)
+        self.logger.debug("Regisered event: {0!r}".format(acb))
+        self.callbacks.append(acb)
     
     def checkCallbacks(self, now=None):
         "Checks the callbacks to be run"
@@ -65,6 +78,7 @@ class SunScheduler:
 
 if __name__ == '__main__':
     import sys
+    logging.basicConfig(level=logging.DEBUG)
     # Unit tests for this module
     def dummyCallback(*args, **kwargs):
         print("Dummy called with: {!r}, {!r}".format(args, kwargs))

@@ -5,13 +5,14 @@ Based on pgpio
 """
 
 import time
+import logging
 
 class Light(object):
     "One or more channel driver"
     
     def __init__(self, pi, gpios, scales=None, phases=None):
         self.pi = pi
-        self.gpio   = tuple(gpios)
+        self.gpio = tuple(gpios)
         if scales is None:
             self.scales = tuple([1] * len(gpios))
         else:
@@ -22,6 +23,8 @@ class Light(object):
         else:
             self.phase = tuple(phases)
         self.set(*([0] * len(gpios)))
+        self.logger = logging.getLogger(repr(self))
+        self.logger.debug("Light initalized with gpios={0.gpio!r}, scales={0.scales!r}, phase={0.phase!r}".format(self))
         
     def set(self, *vals):
         self._target = vals
@@ -30,6 +33,9 @@ class Light(object):
     
     def get(self):
         return self._target
+        
+    def __repr__(self):
+        return "{0.__class__.__name__}(gpios={0.gpio!r})".format(self)
 
 class SlowLinearFader(Light):
     "A light object that supports slow fading"
@@ -40,9 +46,10 @@ class SlowLinearFader(Light):
         self.end_val    = [0]
         self.start_time = 0
         self.end_time   = 0
-        
+    
     def setTarget(self, duration, targets):
         "Start linearly fading from current value to target over duration seconds"
+        self.logger.info("Fading to {0} over {1} seconds".format(targets, duration))
         self.start_val  = self.get()
         self.end_val    = targets
         self.start_time = time.time()
@@ -89,6 +96,7 @@ class Dimmer(object):
 if __name__ == '__main__':
     # Unit tests
     import sys
+    logging.basicConfig(level=logging.DEBUG)
     class SpyPi:
         def __init__(self):
             self.expect = None

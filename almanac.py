@@ -28,7 +28,7 @@ class AlmanacCallback:
             after  = True if (self.after  is None) else (now > (a[self.after[0]]  + self.after[1]))
             before = True if (self.before is None) else (now < (a[self.before[0]] + self.before[1]))
             if after and before:
-                self.logger.info("Running")
+                self.logger.info("Running {0!s}".format(now))
                 self.callback()
                 self.done = True
 

@@ -66,7 +66,7 @@ def InitalizeHardware():
     logger.debug("Setting up hen house light")
     global hen_lamp
     hen_lamp = lights.SlowLinearFader(pi, [HEN_HOUSE_LIGHT], [LED_MAX_PWM], [0])
-    sun_scheduler.addEvent(lambda: hen_lamp.setTarget(45*60, [0.0]),
+    sun_scheduler.addEvent(lambda: hen_lamp.setTarget(45*60, [1.0]),
                            after  = ('noon', datetime.timedelta(hours=-7)),
                            before = ('dawn', datetime.timedelta(0)), # Only turn on light if less than 14 hours of daylight
                            )

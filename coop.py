@@ -11,6 +11,7 @@ import time
 import subprocess
 import argparse
 import logging
+from logging import handlers
 import datetime
 from PCA9685_pigpio import *
 from door import *
@@ -20,6 +21,7 @@ import lights
 import health
 import almanac
 from sharedclient import SharedClient, topic_join
+from mqtthandler import MQTTHandler
 
 DOOR_OPEN_SW     = COOP_OPEN_SW
 DOOR_CLOSED_SW   = COOP_CLOSED_SW
@@ -162,10 +164,10 @@ if __name__ == '__main__':
     parser.add_argument('-n', "--bind", type=str, help="Local interface to bind to for connection to broker")
     parser.add_argument('-t', "--topic", type=str, default="coop", help="Base MQTT topic")
     parser.add_argument('-v', "--verbose", action="store_true", help="More verbose debugging output")
+    parser.add_argument('-l', "--log_file", type=str, help="Base file to write logs to, will automatically roll over ever 16 MB")
+    parser.add_argument('-m', "--log_mqtt", action="store_true", help="If specified, logged events will be sent to mqtt")
     parser.add_argument("location", type=argparse.FileType('rb'), help="Pickle file containing an Astral location instance for almanac")
     args = parser.parse_args()
-    
-    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARN)
     
     brokerConnect = [args.brokerHost]
     if args.brokerPort: brokerConnect.append(args.brokerPort)
@@ -174,6 +176,27 @@ if __name__ == '__main__':
 
     base_topic = args.topic
     mqtt_client = SharedClient(args.clientID, not args.clientID)
+    
+    logHandlers = []
+    if args.log_file:
+        rfh = handlers.RotatingFileHandler(args.log_file, maxBytes=0x1000000)
+        rfh.setLevel(logging.WARN)
+        logHandlers.append(rfh)
+    if args.log_mqtt:
+        mh = MQTTHandler(mqtt_client, topic_join(base_topic, "log"))
+        mh.setLevel(logging.DEBUG if args.verbose else logging.INFO)
+        logHandlers.append()
+    if args.verbose:
+        sh = logging.StreamHandler(sys.stdout)
+        sh.setLevel(logging.DEBUG)
+        logHandlers.append(sh)
+    elif not len(logHandlers):
+        sh = logging.StreamHandler(sys.stdout)
+        sh.setLevel(logging.INFO)
+        logHandlers.append(sh)
+    
+    logging.basicConfig(level=logging.DEBUG, handlers=logHandlers)
+    
     hmon = health.HealthMonitor()
     sun_scheduler = almanac.SunScheduler(args.location)
 

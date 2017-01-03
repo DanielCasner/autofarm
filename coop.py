@@ -73,6 +73,9 @@ def InitalizeHardware():
     sun_scheduler.addEvent(lambda: hen_lamp.setTarget(45*60, [0.0]),
                            after  = ('noon', datetime.timedelta(hours=6, minutes=15)), # Always let hens sleep
                            )
+    if ((sun_scheduler.sun['noon'] - sun_scheduler.sun['dawn']) < datetime.timedelta(hours=7)) and
+       (abs(sun_scheduler.sun['noon'] - datetime.datetime.now()) < datetime.timedelta(hours=7)):
+        hen_lamp.setTarget(45, [1.0])
     # Camera IR Illuminator
     #logger.debug("Setting up hen house camera IR illuminator")
     #global hen_illuminator

@@ -10,7 +10,7 @@ import logging
 class Light(object):
     "One or more channel driver"
     
-    def __init__(self, pi, gpios, scales=None, phases=None):
+    def __init__(self, pi, gpios, scales=None, phases=None, gamma=1.0):
         self.pi = pi
         self.gpio = tuple(gpios)
         if scales is None:
@@ -22,6 +22,7 @@ class Light(object):
             self.phase = tuple((float(i)/num for i in range(num)))
         else:
             self.phase = tuple(phases)
+        self.gamma = gamma
         self.set(*([0] * len(gpios)))
         self.logger = logging.getLogger(repr(self))
         self.logger.debug("Light initalized with gpios={0.gpio!r}, scales={0.scales!r}, phase={0.phase!r}".format(self))
@@ -29,7 +30,8 @@ class Light(object):
     def set(self, *vals):
         self._target = vals
         for pin, scale, phase, val in zip(self.gpio, self.scales, self.phase, vals):
-            self.pi.set_PWM_dutycycle(pin, scale*val, phase)
+            out = pow(val, self.gamma) * scale
+            self.pi.set_PWM_dutycycle(pin, out, phase)
     
     def get(self):
         return self._target

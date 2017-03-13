@@ -6,6 +6,7 @@ a complex program to share one MQTT client among a number of destinct functions 
 __author__ = "Daniel Casner <www.danielcasner.org>"
 
 import paho.mqtt.client as mqtt
+import logging
 
 def topic_join(*args):
     "Returns the tokens specified jouint by the MQTT topic namespace separatot"
@@ -24,11 +25,13 @@ class SharedClient(mqtt.Client):
     def __init__(self, *args, **kwargs):
         "Initalize client"
         mqtt.Client.__init__(self, *args, **kwargs)
+        self.logger = logging.getLogger(__name__)
         self._connected = False
         self._subscriptions = {}
     
     def subscribe(self, topic, qos, callback):
         "Subscribe to a given topic with callback"
+        self.logger.info("Subscribing to {:s} at qos={:d}".format(topic, qos))
         needToSubscribe = True
         if topic in self._subscriptions:
             sub = self._subscriptions[topic]
@@ -46,6 +49,7 @@ class SharedClient(mqtt.Client):
     
     def unsubscribe(self, topic, callback):
         "Unsubscribe a single callback"
+        self.logger.info("Unsubscribing from {:s}".format(topic))
         self._subscriptions[topic].remove(callback)
         if len(self._subscriptions[topic]) == 0:
             mqtt.Client.unsubscribe(self, topic)
@@ -62,5 +66,6 @@ class SharedClient(mqtt.Client):
         
     def on_message(self, client, userdata, msg):
         "Callback on MQTT message"
+        self.logger.debug("Received {0.topic:s} -> {0.payload!r}".format(msg))
         for cb in self._subscriptions[msg.topic]:
             cb(msg)

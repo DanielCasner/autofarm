@@ -105,7 +105,26 @@ class Door:
                     break
             else:
                 self.stop()
-                self.logger.warn("Door did not open in time")
+                self.logger.warn("Door did not close in time")
+
+    def warn(self, count=5, interval=0.5, speed=0.5):
+        """Pulse the door towards closed briefly some number of times to warn that it will actually close soon
+        @param count    How many pulses to execute
+        @param interval Time between pulses in seconds, duty cycle is 50%
+        @param speed    Factor applied to close speed
+        """
+        if not self.enabled:
+            self.logger.info("Door warn not enabled")
+        else:
+            self.logger.info("Warning door close, {} {} second pulses".format(count, interval))
+            try:
+                for i in range(count):
+                    self.motor.drive(self.CLOSE_SPEED * speed)
+                    time.sleep(interval/2.0)
+                    self.motor.stop()
+                    time.sleep(interval/2.0)
+            finally:
+                self.stop()
 
     def enable(self, enabled):
         self.enabled = enabled

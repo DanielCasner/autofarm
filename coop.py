@@ -47,6 +47,8 @@ LED_MAX_PWM = 4096
 
 THERMOSTAT_PID = (1.0, 0.0, 0.0, 1.0)
 
+HEN_LAMP_MAX = 100
+
 logger         = logging.getLogger(__name__)
 mqtt_client    = None
 base_topic     = None
@@ -64,11 +66,12 @@ def InitalizeHardware():
     hen_door = Door(pi, DOOR_MOT_IN1, DOOR_MOT_IN2, DOOR_CLOSED_SW, DOOR_OPEN_SW, mqtt_client, topic_join(base_topic, "door", "status"))
     sun_scheduler.addEvent(hen_door.open,  ('sunrise', datetime.timedelta(0)))
     sun_scheduler.addEvent(hen_door.close, ('dusk',    datetime.timedelta(0)))
+    sun_scheduler.addEvent(hen_door.warn,  ('dusk',    datetime.timedelta(seconds=-45)))
     # Hen house SAD lamp
     logger.debug("Setting up hen house light")
     global hen_lamp
-    hen_lamp = lights.SlowLinearFader(pi, [HEN_HOUSE_LIGHT], [LED_MAX_PWM], [0])
-    sun_scheduler.addEvent(lambda: hen_lamp.setTarget(45*60, [1.0]),
+    hen_lamp = lights.SlowLinearFader(pi, [HEN_HOUSE_LIGHT], [LED_MAX_PWM/HEN_LAMP_MAX], [0])
+    sun_scheduler.addEvent(lambda: hen_lamp.setTarget(45*60, [100]),
                            after  = ('noon', datetime.timedelta(hours=-7)),
                            before = ('dawn', datetime.timedelta(0)), # Only turn on light if less than 14 hours of daylight
                            )
@@ -77,7 +80,7 @@ def InitalizeHardware():
                            )
     if ((sun_scheduler.sun['noon'] - sun_scheduler.sun['dawn']) < datetime.timedelta(hours=7)) and \
        (abs(sun_scheduler.sun['noon'] - datetime.datetime.now(sun_scheduler.location.tz)) < datetime.timedelta(hours=7)):
-        hen_lamp.setTarget(45, [1.0])
+        hen_lamp.setTarget(45, [HEN_LAMP_MAX])
     # Camera IR Illuminator
     #logger.debug("Setting up hen house camera IR illuminator")
     #global hen_illuminator
@@ -115,11 +118,13 @@ def ParsePayload(msg, lb=None, ub=None, options=None):
                 return cmd
 
 def DoorCommand(msg):
-    cmd = ParsePayload(msg, options=["OPEN", "CLOSE", "ENABLE", "DISABLE"])
+    cmd = ParsePayload(msg, options=["OPEN", "CLOSE", "WARN", "ENABLE", "DISABLE"])
     if cmd == 'OPEN':
         hen_door.open()
     elif cmd == 'CLOSE':
         hen_door.close()
+    elif cmd == 'WARN':
+        hen_door.warn()
     elif cmd == 'ENABLE':
         hen_door.enable(True)
     elif cmd == 'DISABLE':

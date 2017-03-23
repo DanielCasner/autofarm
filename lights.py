@@ -51,10 +51,12 @@ class SlowLinearFader(Light):
         self.end_val    = [0]
         self.start_time = 0
         self.end_time   = 0
+        self.done       = False
     
     def setTarget(self, duration, targets):
         "Start linearly fading from current value to target over duration seconds"
         self.logger.info("Fading to {0} over {1} seconds".format(targets, duration))
+        self.done       = False
         self.start_val  = self.get()
         self.end_val    = targets
         self.start_time = time.time()
@@ -68,9 +70,12 @@ class SlowLinearFader(Light):
             interpolation = [sv * (1.0 - progress) + ev * (progress) for sv, ev in zip(self.start_val, self.end_val)]
             self.set(*interpolation)
             return interpolation
-        else:
+        elif not self.done:
             self.set(*self.end_val)
+            self.done = True
             return self.end_val
+        else:
+            return None
         
 
 class Dimmer(object):

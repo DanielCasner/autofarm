@@ -43,7 +43,7 @@ DEBUG_LED2       = 0xd + PCA9685Pi.EXTENDER_OFFSET
 DIMMER_MAX_PWM = 0
 DIMMER_MIN_PWM = 4096
 
-LED_MAX_PWM = 4096
+LED_MAX_PWM = 4095
 
 THERMOSTAT_PID = (1.0, 0.0, 0.0, 1.0)
 
@@ -70,7 +70,7 @@ def InitalizeHardware():
     # Hen house SAD lamp
     logger.debug("Setting up hen house light")
     global hen_lamp
-    hen_lamp = lights.SlowLinearFader(pi, [HEN_HOUSE_LIGHT], [LED_MAX_PWM/HEN_LAMP_MAX], [0])
+    hen_lamp = lights.SlowLinearFader(pi, [HEN_HOUSE_LIGHT], LED_MAX_PWM, LED_MAX_PWM/100, [0], 2.8)
     sun_scheduler.addEvent(lambda: hen_lamp.setTarget(45*60, [100]),
                            after  = ('noon', datetime.timedelta(hours=-7)),
                            before = ('dawn', datetime.timedelta(0)), # Only turn on light if less than 14 hours of daylight

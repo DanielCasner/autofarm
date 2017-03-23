@@ -10,27 +10,30 @@ import logging
 class Light(object):
     "One or more channel driver"
     
-    def __init__(self, pi, gpios, scales=None, phases=None, gamma=1.0):
+    def clamp(self, val):
+        return max(0, min(val, self.maximum))
+    
+    def __init__(self, pi, gpios, maximum, scale=1, phases=None, gamma=1):
         self.pi = pi
         self.gpio = tuple(gpios)
-        if scales is None:
-            self.scales = tuple([1] * len(gpios))
-        else:
-            self.scales = tuple(scales)
+        self.maximum = maximum
+        self.scale = scale
         if phases is None:
-            num = len(self.gpio)
-            self.phase = tuple((float(i)/num for i in range(num)))
+            self.phase = tuple([0]*len(self.gpio))
         else:
             self.phase = tuple(phases)
         self.gamma = gamma
         self.set(*([0] * len(gpios)))
         self.logger = logging.getLogger(repr(self))
-        self.logger.debug("Light initalized with gpios={0.gpio!r}, scales={0.scales!r}, phase={0.phase!r}".format(self))
+        self.logger.debug("Light initalized with gpios={0.gpio!r}, maximum={0.maximum!r} scale={0.scale!r}, phase={0.phase!r}, gamma={0.gamma!r}".format(self))
         
     def set(self, *vals):
         self._target = vals
-        for pin, scale, phase, val in zip(self.gpio, self.scales, self.phase, vals):
-            out = pow(val, self.gamma) * scale
+        for pin, phase, val in zip(self.gpio, self.phase, vals):
+            if self.gamma == 1:
+                out = self.clamp(val * self.scale)
+            else:
+                out = self.clamp(pow(val * self.scale / self.maximum, self.gamma) * self.maximum)
             self.pi.set_PWM_dutycycle(pin, out, phase)
     
     def get(self):
@@ -65,7 +68,9 @@ class SlowLinearFader(Light):
             interpolation = [sv * (1.0 - progress) + ev * (progress) for sv, ev in zip(self.start_val, self.end_val)]
             self.set(*interpolation)
             return interpolation
-        # else should make sure final value is set but not worth the trouble
+        else:
+            self.set(*self.end_val)
+            return self.end_val
         
 
 class Dimmer(object):
@@ -115,7 +120,7 @@ if __name__ == '__main__':
 
     if "dimmer" in sys.argv:
         pi = DummyPi(False)
-        l = SlowLinearFader(pi, [0], [4095])
+        l = SlowLinearFader(pi, [0], 4095, 4096, gamma=2.8)
         print(next(l))
         l.setTarget(10, [1.0])
         t = time.time()
@@ -129,11 +134,11 @@ if __name__ == '__main__':
     else:
         pi = SpyPi()
         pi.expect_pwm_cmd(0, 0.0, 0.0)
-        l = Light(pi, [0])
+        l = Light(pi, [0], 1)
         pi.expect_pwm_cmd(0, 1, 0)
         l.set(1)
         pi.expect_pwm_cmd(0, 0, 1)
-        l = Light(pi, [0], [100], [1])
+        l = Light(pi, [0], 100, 100, [1])
         pi.expect_pwm_cmd(0, 100, 1)
         l.set(1)
         

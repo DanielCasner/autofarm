@@ -18,7 +18,7 @@ class SharedClient(mqtt.Client):
     class Subscription(list):
         "A list of callbacks that also has a stored QOS and topic"
         def __init__(self, topic, qos, callbacks=[]):
-            list.__init__(callbacks)
+            list.__init__(self, callbacks)
             self.topic = topic
             self.qos = qos
     
@@ -68,4 +68,5 @@ class SharedClient(mqtt.Client):
         "Callback on MQTT message"
         self.logger.debug("Received {0.topic:s} -> {0.payload!r}".format(msg))
         for cb in self._subscriptions[msg.topic]:
+            self.logger.debug("\tCalling {}".format(repr(cb)))
             cb(msg)

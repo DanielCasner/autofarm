@@ -13,6 +13,7 @@ import argparse
 import logging
 from logging import handlers
 import datetime
+import json
 from PCA9685_pigpio import *
 from door import *
 from thermostat import Thermostat
@@ -96,7 +97,7 @@ def CleanupHardware():
 
 def ParsePayload(msg, lb=None, ub=None, options=None):
     try:
-        cmd = json.loads(msg.payload)
+        cmd = json.loads(msg.payload.decode())
     except:
         logger.warn("Unable to parse payload of message on topic \"{0.topic}\": {0.payload}".format(msg))
         return None
@@ -133,7 +134,7 @@ def DoorCommand(msg):
 def HenHouseLightCommand(msg):
     cmd = ParsePayload(msg)
     if cmd is not None:
-        hen_lamp.setTarget(cmd, 5) # 5 second fade
+        hen_lamp.setTarget(5, [cmd]) # 5 second fade
 
 def HenHouseIlluminator(msg):
     cmd = ParsePayload(msg)

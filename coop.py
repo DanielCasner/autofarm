@@ -119,11 +119,13 @@ def ParsePayload(msg, lb=None, ub=None, options=None):
                 return cmd
 
 def DoorCommand(msg):
-    cmd = ParsePayload(msg, options=["OPEN", "CLOSE", "WARN", "ENABLE", "DISABLE"])
+    cmd = ParsePayload(msg, options=["OPEN", "CLOSE", "STOP", "WARN", "ENABLE", "DISABLE"])
     if cmd == 'OPEN':
         hen_door.open()
     elif cmd == 'CLOSE':
         hen_door.close()
+    elif cmd == 'STOP':
+        hen_door.stop()
     elif cmd == 'WARN':
         hen_door.warn()
     elif cmd == 'ENABLE':
@@ -149,16 +151,18 @@ def Automate(mqtt_connect_args):
     InitalizeHardware()
     mqtt_client.subscribe(topic_join(base_topic, "door", "command"), 1, DoorCommand)
     mqtt_client.subscribe(topic_join(base_topic, "house_light", "brightness"), 1, HenHouseLightCommand)
+    mqtt_client.loop_timeout = 0.050
     logger.debug("Entering main loop")
     try:
         while True:
             next(sun_scheduler)
             next(hen_lamp)
-            time.sleep(1)
+            next(mqtt_client)
     except KeyboardInterrupt:
-        logger.debug("Exiting at sig-exit")
+        logger.info("Exiting at sig-exit")
     # Clean up peripherals
     CleanupHardware()
+    logger.info("Hardware cleanup done")
     mqtt_client.loop_stop()
 
 if __name__ == '__main__':

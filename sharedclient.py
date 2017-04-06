@@ -7,6 +7,7 @@ __author__ = "Daniel Casner <www.danielcasner.org>"
 
 import paho.mqtt.client as mqtt
 import logging
+import queue
 
 def topic_join(*args):
     "Returns the tokens specified jouint by the MQTT topic namespace separatot"
@@ -26,6 +27,8 @@ class SharedClient(mqtt.Client):
         "Initalize client"
         mqtt.Client.__init__(self, *args, **kwargs)
         self.logger = logging.getLogger(__name__)
+        self.queue  = queue.Queue(kwargs.get('queue_maxsize', 0))
+        self.loop_timeout = kwargs.get('queue_timeout', 1.0)
         self._connected = False
         self._subscriptions = {}
     
@@ -69,4 +72,12 @@ class SharedClient(mqtt.Client):
         self.logger.debug("Received {0.topic:s} -> {0.payload!r}".format(msg))
         for cb in self._subscriptions[msg.topic]:
             self.logger.debug("\tCalling {}".format(repr(cb)))
+            self.queue.put((cb, msg), False)
+    
+    def __next__(self):
+        try:
+            cb, msg = self.queue.get(True, self.loop_timeout)
+        except queue.Empty:
+            pass
+        else:
             cb(msg)

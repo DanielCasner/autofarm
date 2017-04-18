@@ -134,14 +134,9 @@ def DoorCommand(msg):
         hen_door.enable(False)
 
 def HenHouseLightCommand(msg):
-    cmd = ParsePayload(msg)
+    cmd = ParsePayload(msg, 0, 100)
     if cmd is not None:
         hen_lamp.setTarget(5, [cmd]) # 5 second fade
-
-def HenHouseIlluminator(msg):
-    cmd = ParsePayload(msg)
-    if cmd is not None:
-        hen_illuminator.set(cmd)
 
 def Automate(mqtt_connect_args):
     "Run the automation main loop"
@@ -157,6 +152,7 @@ def Automate(mqtt_connect_args):
         while True:
             next(sun_scheduler)
             next(hen_lamp)
+            next(hmon)
             next(mqtt_client)
     except KeyboardInterrupt:
         logger.info("Exiting at sig-exit")
@@ -207,7 +203,7 @@ if __name__ == '__main__':
     
     logging.basicConfig(level=logging.DEBUG, handlers=logHandlers)
     
-    hmon = health.HealthMonitor()
+    hmon = health.HealthPublisher(mqtt_client, topic_join(base_topic, "health"))
     sun_scheduler = almanac.SunScheduler(args.location)
 
     Automate(brokerConnect)

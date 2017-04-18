@@ -6,6 +6,8 @@ __author__ = "Daniel Casner <www.danielcasner.org>"
 
 import os
 import psutil
+import time
+import json
 
 class HealthMonitor(psutil.Process):
     
@@ -23,7 +25,33 @@ class HealthMonitor(psutil.Process):
     def memory(self):
         "Returns the current memory utalization percentage"
         return psutil.virtual_memory().percent, self.memory_percent()
+        
+    def uptime(self):
+        "Returns the amount of time this process has been running"
+        return time.time() - self.create_time()
 
+class HealthPublisher(HealthMonitor):
+    "Class for puriodically publishing health data"
+    
+    def __init__(self, client, topic, interval=30, pid=os.getpid()):
+        HealthMonitor.__init__(self, pid)
+        self.client = client
+        self.topic = topic
+        self.interval = interval
+        self.last_publish_time = 0.0
+        
+    def __next__(self):
+        "Step the publisher"
+        now = time.time()
+        if now - self.last_publish_time >= interval:
+            msg = {
+                "cpu_temp": self.temperature(),
+                "load":     self.load(),
+                "memory":   self.memory(),
+                "uptime":   self.uptime(),
+            }
+            self.client.publish(topic, json.dumps(msg))
+            self.last_publish_time = now
 
 if __name__ == '__main__':
     "Unit test"

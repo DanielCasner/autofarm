@@ -6,18 +6,16 @@ This program administers the automation logic for the coop.
 __author__ = "Daniel Casner <www.danielcasner.org>"
 
 import sys
-import os
-import time
-import subprocess
 import argparse
 import logging
 from logging import handlers
+import os
 import datetime
 import json
 from PCA9685_pigpio import *
 from door import *
-from thermostat import Thermostat
-import candle
+#from thermostat import Thermostat
+#import candle
 import lights
 import health
 import almanac
@@ -173,7 +171,11 @@ if __name__ == '__main__':
     parser.add_argument('-l', "--log_file", type=str, help="Base file to write logs to, will automatically roll over ever 16 MB")
     parser.add_argument('-m', "--log_mqtt", action="store_true", help="If specified, logged events will be sent to mqtt")
     parser.add_argument("location", type=argparse.FileType('rb'), help="Pickle file containing an Astral location instance for almanac")
-    args = parser.parse_args()
+    
+    if len(sys.argv) == 1 and os.path.isfile('coop.args'):
+        args = parser.parse_args(open('coop.args', r).read().split())
+    else:
+        args = parser.parse_args()
     
     brokerConnect = [args.brokerHost]
     if args.brokerPort: brokerConnect.append(args.brokerPort)

@@ -1,0 +1,11 @@
+#Service for Coop Daemon as a SystemD service
+#
+[Unit]
+Description=coop
+After=syslog.target network.target
+[Service]
+ExecStart=/usr/bin/python3 /home/pi/coop/coop.py
+Restart=on-abort
+WorkingDirectory=/home/pi/coop/
+[Install]
+WantedBy=multi-user.target

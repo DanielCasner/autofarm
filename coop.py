@@ -70,7 +70,7 @@ def InitalizeHardware():
     logger.debug("Setting up hen house light")
     global hen_lamp
     hen_lamp = lights.SlowLinearFader(pi, [HEN_HOUSE_LIGHT], LED_MAX_PWM, LED_MAX_PWM/100, [0], 2.8)
-    sun_scheduler.addEvent(lambda: hen_lamp.setTarget(45*60, [80]),
+    sun_scheduler.addEvent(lambda: hen_lamp.setTarget(45*60, [HEN_LAMP_MAX*0.80]),
                            after  = ('noon', datetime.timedelta(hours=-7)),
                            before = ('dawn', datetime.timedelta(0)), # Only turn on light if less than 14 hours of daylight
                            )
@@ -79,7 +79,7 @@ def InitalizeHardware():
                            )
     if ((sun_scheduler.sun['noon'] - sun_scheduler.sun['dawn']) < datetime.timedelta(hours=7)) and \
        (abs(sun_scheduler.sun['noon'] - datetime.datetime.now(sun_scheduler.location.tz)) < datetime.timedelta(hours=7)):
-        hen_lamp.setTarget(45, [HEN_LAMP_MAX])
+        hen_lamp.setTarget(45, [HEN_LAMP_MAX*0.80])
     # Camera IR Illuminator
     #logger.debug("Setting up hen house camera IR illuminator")
     #global hen_illuminator

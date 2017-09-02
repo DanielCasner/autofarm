@@ -1,0 +1,11 @@
+#Service for web cam servers
+#
+[Unit]
+Description=Run webcam server script %i via system service
+After=syslog.target network.target
+[Service]
+ExecStart=/bin/sh %i
+Restart=on-abort
+WorkingDirectory=/home/pi/coop/camera-scripts
+[Install]
+WantedBy=multi-user.target

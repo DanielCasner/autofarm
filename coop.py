@@ -70,7 +70,7 @@ def InitalizeHardware():
     logger.debug("Setting up hen house light")
     global hen_lamp
     hen_lamp = lights.SlowLinearFader(pi, [HEN_HOUSE_LIGHT], LED_MAX_PWM, LED_MAX_PWM/100, [0], 2.8)
-    sun_scheduler.addEvent(lambda: hen_lamp.setTarget(45*60, [100]),
+    sun_scheduler.addEvent(lambda: hen_lamp.setTarget(45*60, [80]),
                            after  = ('noon', datetime.timedelta(hours=-7)),
                            before = ('dawn', datetime.timedelta(0)), # Only turn on light if less than 14 hours of daylight
                            )
@@ -173,7 +173,9 @@ if __name__ == '__main__':
     parser.add_argument("location", type=argparse.FileType('rb'), help="Pickle file containing an Astral location instance for almanac")
     
     if len(sys.argv) == 1 and os.path.isfile('coop.args'):
-        args = parser.parse_args(open('coop.args', r).read().split())
+        cached_args = open('coop.args', 'r').read()
+        print("Running with ached args:", cached_args)
+        args = parser.parse_args(cached_args.split())
     else:
         args = parser.parse_args()
     

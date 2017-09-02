@@ -2,7 +2,7 @@
 #
 [Unit]
 Description=coop
-After=syslog.target network.target
+After=syslog.target network.target pigpiod.service
 [Service]
 ExecStart=/usr/bin/python3 /home/pi/coop/coop.py
 Restart=on-abort

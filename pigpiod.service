@@ -1,0 +1,11 @@
+#Service for pigpiod as a SystemD service
+#
+[Unit]
+Description=Pi GPIO Daemon
+After=syslog.target network.target
+[Service]
+ExecStart=/usr/local/bin/pigpiod -l -t0
+ExecStop=/bin/systemctl kill -s SIGKILL pigpiod
+Type=forking
+[Install]
+WantedBy=multi-user.target

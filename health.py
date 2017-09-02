@@ -43,14 +43,14 @@ class HealthPublisher(HealthMonitor):
     def __next__(self):
         "Step the publisher"
         now = time.time()
-        if now - self.last_publish_time >= interval:
+        if now - self.last_publish_time >= self.interval:
             msg = {
                 "cpu_temp": self.temperature(),
                 "load":     self.load(),
                 "memory":   self.memory(),
                 "uptime":   self.uptime(),
             }
-            self.client.publish(topic, json.dumps(msg))
+            self.client.publish(self.topic, json.dumps(msg))
             self.last_publish_time = now
 
 if __name__ == '__main__':

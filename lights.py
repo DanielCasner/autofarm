@@ -9,10 +9,10 @@ import logging
 
 class Light(object):
     "One or more channel driver"
-    
+
     def clamp(self, val):
         return max(0, min(val, self.maximum))
-    
+
     def __init__(self, pi, gpios, maximum, scale=1, phases=None, gamma=1):
         self.pi = pi
         self.gpio = tuple(gpios)
@@ -25,9 +25,12 @@ class Light(object):
         self.gamma = gamma
         self.set(*([0] * len(gpios)))
         self.logger = logging.getLogger(repr(self))
-        self.logger.debug("Light initalized with gpios={0.gpio!r}, maximum={0.maximum!r} scale={0.scale!r}, phase={0.phase!r}, gamma={0.gamma!r}".format(self))
-        
+        self.logger.debug("Light initalized with gpios={0.gpio!r}, "
+                          "maximum={0.maximum!r} scale={0.scale!r}, "
+                          "phase={0.phase!r}, gamma={0.gamma!r}".format(self))
+
     def set(self, *vals):
+        "Update the target value of the light"
         self._target = vals
         for pin, phase, val in zip(self.gpio, self.phase, vals):
             if self.gamma == 1:
@@ -35,33 +38,34 @@ class Light(object):
             else:
                 out = self.clamp(pow(val * self.scale / self.maximum, self.gamma) * self.maximum)
             self.pi.set_PWM_dutycycle(pin, out, phase)
-    
+
     def get(self):
+        "Retrieve the current target of the light"
         return self._target
-        
+
     def __repr__(self):
         return "{0.__class__.__name__}(gpios={0.gpio!r})".format(self)
 
 class SlowLinearFader(Light):
     "A light object that supports slow fading"
-    
+
     def __init__(self, *a, **kw):
         Light.__init__(self, *a, **kw)
-        self.start_val  = [0]
-        self.end_val    = [0]
+        self.start_val = [0]
+        self.end_val = [0]
         self.start_time = 0
-        self.end_time   = 0
-        self.done       = False
-    
+        self.end_time = 0
+        self.done = False
+
     def setTarget(self, duration, targets):
         "Start linearly fading from current value to target over duration seconds"
-        self.logger.info("Fading to {0} over {1} seconds".format(targets, duration))
-        self.done       = False
-        self.start_val  = self.get()
-        self.end_val    = targets
+        self.logger.info("Fading to % over % seconds", targets, duration)
+        self.done = False
+        self.start_val = self.get()
+        self.end_val = targets
         self.start_time = time.time()
-        self.end_time   = self.start_time + duration
-    
+        self.end_time = self.start_time + duration
+
     def __next__(self):
         now = time.time()
         if now < self.end_time:
@@ -74,34 +78,32 @@ class SlowLinearFader(Light):
             self.set(*self.end_val)
             self.done = True
             return self.end_val
-        else:
-            return None
-        
+        return None
 
 class Dimmer(object):
     "Mains dimmer controller"
-    
-    def __init__(self, pi, gpio, min_pwm, max_pwm, phase=0):
+
+    def __init__(self, pi, gpio, min_pwm, max_pwm):
         self.pi = pi
         self.gpio = gpio
         self.offset = min_pwm
-        self.scale  = max_pwm - min_pwm
+        self.scale = max_pwm - min_pwm
         self._max_power = 1.0
         self.set(0)
-        
+
     def clamp(self, val):
         "Sets a maximum output power command"
         self._max_power = val
         if self._output > val: # If current setting is over clamp, adjust now
             self.set(val)
-    
+
     def set(self, val):
         "Set output value, mapped to minimum and maximum PWM values"
         if val < 0.0 or val > 1.0:
             raise ValueError("val must be in the range [0.0 to 1.0] but was given {}".format(val))
         if val > self._max_power:
             val = self._max_power
-        self.pi.set_PWM_dutycycle(self.gpio, (val * self.scale) + self.offset, self.phase)
+        self.pi.set_PWM_dutycycle(self.gpio, (val * self.scale) + self.offset)
         self._output = val
 
 
@@ -110,6 +112,7 @@ if __name__ == '__main__':
     import sys
     logging.basicConfig(level=logging.DEBUG)
     class SpyPi:
+        "Unit testing spy class"
         def __init__(self):
             self.expect = None
         def expect_pwm_cmd(self, *args):
@@ -117,6 +120,7 @@ if __name__ == '__main__':
         def set_PWM_dutycycle(self, *args):
             assert args == self.expect, "FAIL: set_PWM_dutycycle expected {!r} but got {!r}".format(self.expect, args)
     class DummyPi:
+        "Unit testing dummy class"
         def __init__(self, verbose=True):
             self.verbose = verbose
         def set_PWM_dutycycle(self, *args):
@@ -135,7 +139,7 @@ if __name__ == '__main__':
         t = time.time()
         while time.time() < t + 2:
             print(next(l))
-        
+
     else:
         pi = SpyPi()
         pi.expect_pwm_cmd(0, 0.0, 0.0)
@@ -146,5 +150,5 @@ if __name__ == '__main__':
         l = Light(pi, [0], 100, 100, [1])
         pi.expect_pwm_cmd(0, 100, 1)
         l.set(1)
-        
+
         print("PASS")

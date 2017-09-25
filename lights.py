@@ -80,6 +80,33 @@ class SlowLinearFader(Light):
             return self.end_val
         return None
 
+class GasLamp(SlowLinearFader):
+    "A slow linear fater which can also be driven by candle flicker algorithm"
+
+    def __init__(self, flicker, color_scaling, *light_args, **light_kw_args):
+        SlowLinearFader.__init__(self, *light_args, **light_kw_args)
+        self.flicker = flicker
+        next(self.flicker) # Initalize candle
+        self.fuel = None # If not none, do candle, if none do slow linear fade
+        self.candle_scaling = color_scaling
+
+    def setTarget(self, *args):
+        "Sets explicit target"
+        self.fuel = None
+        SlowLinearFader.setTarget(self, *args)
+
+    def setCandle(self, fuel):
+        "Sets the light to fuel mode"
+        self.fuel = fuel
+
+    def __next__(self):
+        if self.fuel is None:
+            SlowLinearFader.__next__(self)
+        else:
+            flame = self.flicker.send(self.fuel)
+            self.set(*(scale * flame for scale in self.candle_scaling))
+            return flame
+
 class Dimmer(object):
     "Mains dimmer controller"
 

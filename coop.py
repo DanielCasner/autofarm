@@ -21,6 +21,8 @@ import health
 import almanac
 from sharedclient import SharedClient, topic_join
 from mqtthandler import MQTTHandler
+from candle import Flicker
+import re
 
 DOOR_OPEN_SW     = COOP_OPEN_SW
 DOOR_CLOSED_SW   = COOP_CLOSED_SW
@@ -47,6 +49,8 @@ LED_MAX_PWM = 4095
 THERMOSTAT_PID = (1.0, 0.0, 0.0, 1.0)
 
 HEN_LAMP_MAX = 100
+
+RGB_RE = re.compile(r"rgb\((\d+),(\d+),(\d+)\)")
 
 logger         = logging.getLogger(__name__)
 mqtt_client    = None
@@ -86,12 +90,19 @@ def InitalizeHardware():
     #hen_illuminator = lights.Light(pi, [HEN_HOUSE_IR], [PCA9685Pi.MAX_PWM])
     #sun_scheduler.addEvent(lambda: hen_illuminator.set(0.00), ('sunrise', datetime.timedelta(0)))
     #sun_scheduler.addEvent(lambda: hen_illuminator.set(0.25), ('sunset', datetime.timedelta(0)))
+    global exterior_lamp
+    exterior_lamp = lights.GasLamp(Flicker(),
+                                   (255, 128, 64),
+                                   pi, EXTERIOR_LIGHTS, LED_MAX_PWM,
+                                   LED_MAX_PWM/255, (1000, 2000, 3000), 2.8)
 
 def CleanupHardware():
     global hen_door
     del hen_door
     global hen_lamp
     del hen_lamp
+    global exterior_lamp
+    del exterior_lamp
 
 def ParsePayload(msg, lb=None, ub=None, options=None):
     try:
@@ -136,6 +147,21 @@ def HenHouseLightCommand(msg):
     if cmd is not None:
         hen_lamp.setTarget(5, [cmd]) # 5 second fade
 
+def ExteriorBrightness(msg):
+    try:
+        target = [int(c) for c in RGB_RE.match(msg.payload)]
+    except:
+        logger.warn("Unable to parse RGB command on topic \"{0.topic}\": {0.payload}".format(msg))
+    else:
+        exterior_lamp.setTarget(5, target)
+
+def ExteriorFuel(msg):
+    cmd = ParsePayload(msg, 0, 100)
+    if cmd is not None:
+        exterior_lamp.setCandle(cmd/50.0)
+    else:
+        exterior_lamp.setCandle(1.0)
+
 def Automate(mqtt_connect_args):
     "Run the automation main loop"
     logger.debug("Starting MQTT client thread")
@@ -144,12 +170,15 @@ def Automate(mqtt_connect_args):
     InitalizeHardware()
     mqtt_client.subscribe(topic_join(base_topic, "door", "command"), 1, DoorCommand)
     mqtt_client.subscribe(topic_join(base_topic, "house_light", "brightness"), 1, HenHouseLightCommand)
+    mqtt_client.subscribe(topic_join(base_topic, "exterior", "brightness"), 1, ExteriorBrightness)
+    mqtt_client.subscribe(topic_join(base_topic, "exterior", "fuel"), 1, ExteriorFuel)
     mqtt_client.loop_timeout = 0.050
     logger.debug("Entering main loop")
     try:
         while True:
             next(sun_scheduler)
             next(hen_lamp)
+            next(exterior_lamp)
             next(hmon)
             next(mqtt_client)
     except KeyboardInterrupt:

@@ -53,7 +53,7 @@ def Flicker(WIND_VARIABILITY = 0.02,
 
         feedback = yield flameprime
         if feedback:
-            wind = feedback.get('wind')
+            sensor_wind = feedback.get('wind')
             fuel = feedback.get('fuel', fuel)
 
 if __name__ == '__main__':

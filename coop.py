@@ -12,6 +12,7 @@ from logging import handlers
 import os
 import datetime
 import json
+import re
 from PCA9685_pigpio import *
 from door import *
 #from thermostat import Thermostat
@@ -22,7 +23,7 @@ import almanac
 from sharedclient import SharedClient, topic_join
 from mqtthandler import MQTTHandler
 from candle import Flicker
-import re
+import fan
 
 DOOR_OPEN_SW     = COOP_OPEN_SW
 DOOR_CLOSED_SW   = COOP_CLOSED_SW
@@ -95,6 +96,8 @@ def InitalizeHardware():
                                    (255, 128, 64),
                                    pi, EXTERIOR_LIGHTS, LED_MAX_PWM,
                                    LED_MAX_PWM/255, (1000, 2000, 3000), 2.8)
+    global hen_cooler
+    hen_cooler = fan.DiscreteFan(pi, HEN_HOUSE_COOLER, (0, 4095*8/12, 4095*10/12, 4095), 500)
 
 def CleanupHardware():
     global hen_door
@@ -103,8 +106,10 @@ def CleanupHardware():
     del hen_lamp
     global exterior_lamp
     del exterior_lamp
+    global hen_cooler
+    del hen_cooler
 
-def ParsePayload(msg, lb=None, ub=None, options=None):
+def ParsePayload(msg, lb=None, ub=None, required_type=None, options=None):
     try:
         cmd = json.loads(msg.payload.decode())
     except:
@@ -118,7 +123,9 @@ def ParsePayload(msg, lb=None, ub=None, options=None):
             else:
                 return cmd
         else:
-            if lb is not None and cmd < lb:
+            if required_type is not None and type(cmd) is not required_type:
+                logger.warn("Command for topic {}, is type {} not {}".format(msg.topic, type(cmd), required_type))
+            elif lb is not None and cmd < lb:
                 logger.warn("Command for topic {}, {} < lower bound {}".format(msg.topic, cmd, lb))
                 return None
             elif ub is not None and cmd > ub:
@@ -162,6 +169,11 @@ def ExteriorFuel(msg):
     else:
         exterior_lamp.setCandle(1.0)
 
+def HenCoolerSpeed(msg):
+    cmd = ParsePayload(msg, 0, 3, int)
+    if cmd is not None:
+        hen_cooler.set(cmd)
+
 def Automate(mqtt_connect_args):
     "Run the automation main loop"
     logger.debug("Starting MQTT client thread")
@@ -172,6 +184,7 @@ def Automate(mqtt_connect_args):
     mqtt_client.subscribe(topic_join(base_topic, "house_light", "brightness"), 1, HenHouseLightCommand)
     mqtt_client.subscribe(topic_join(base_topic, "exterior", "brightness"), 1, ExteriorBrightness)
     mqtt_client.subscribe(topic_join(base_topic, "exterior", "fuel"), 1, ExteriorFuel)
+    mqtt_client.subscribe(topic_join(base_topic, "hen_cooler", "speed"), 1, HenCoolerSpeed)
     mqtt_client.loop_timeout = 0.050
     logger.debug("Entering main loop")
     try:

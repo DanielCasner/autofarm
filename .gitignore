@@ -88,3 +88,4 @@ ENV/
 # Rope project settings
 .ropeproject
 coop.args
+**.DS_Store

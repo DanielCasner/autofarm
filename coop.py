@@ -23,7 +23,7 @@ import almanac
 from sharedclient import SharedClient, topic_join
 from mqtthandler import MQTTHandler
 from candle import Flicker
-import fan
+import fans
 
 DOOR_OPEN_SW     = COOP_OPEN_SW
 DOOR_CLOSED_SW   = COOP_CLOSED_SW
@@ -213,14 +213,14 @@ if __name__ == '__main__':
     parser.add_argument('-l', "--log_file", type=str, help="Base file to write logs to, will automatically roll over ever 16 MB")
     parser.add_argument('-m', "--log_mqtt", action="store_true", help="If specified, logged events will be sent to mqtt")
     parser.add_argument("location", type=argparse.FileType('rb'), help="Pickle file containing an Astral location instance for almanac")
-    
+
     if len(sys.argv) == 1 and os.path.isfile('coop.args'):
         cached_args = open('coop.args', 'r').read()
         print("Running with ached args:", cached_args)
         args = parser.parse_args(cached_args.split())
     else:
         args = parser.parse_args()
-    
+
     brokerConnect = [args.brokerHost]
     if args.brokerPort: brokerConnect.append(args.brokerPort)
     if args.brokerKeepAlive: brokerConnect.append(args.brokerKeepAlive)
@@ -228,7 +228,7 @@ if __name__ == '__main__':
 
     base_topic = args.topic
     mqtt_client = SharedClient(args.clientID, not args.clientID)
-    
+
     logHandlers = []
     if args.log_file:
         rfh = handlers.RotatingFileHandler(args.log_file, maxBytes=0x1000000)
@@ -246,9 +246,9 @@ if __name__ == '__main__':
         sh = logging.StreamHandler(sys.stdout)
         sh.setLevel(logging.INFO)
         logHandlers.append(sh)
-    
+
     logging.basicConfig(level=logging.DEBUG, handlers=logHandlers)
-    
+
     hmon = health.HealthPublisher(mqtt_client, topic_join(base_topic, "health"))
     sun_scheduler = almanac.SunScheduler(args.location)
 

@@ -15,10 +15,10 @@ WB_GAINS = (1.2, 0.9)
 
 def main():
     with picamera.PiCamera() as camera:
-        camera.resolution = (1280, 720)
+        camera.resolution = (320, 240)
         camera.awb_mode = 'off'
         camera.awb_gains = WB_GAINS
-        camera.framerate = 0.25
+        camera.framerate = 1
         camera.start_preview()
         overlay = None
         with picamera.array.PiRGBArray(camera, size=camera.resolution) as output:

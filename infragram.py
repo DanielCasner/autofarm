@@ -19,8 +19,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 __author__ = "Daniel Casner <daniel@danielcasner.org>"
 
 import os
-import matplotlib
-import matplotlib.pyplot as plt
+try:
+    import matplotlib
+    import matplotlib.pyplot as plt
+except ImportError:
+    pass
 import numpy as numpy
 from PIL import Image, ImageDraw, ImageFont
 import gc
@@ -29,7 +32,17 @@ os.environ['MPLCONFIGDIR'] = '/tmp/'
 matplotlib.use('Agg')
 
 
-def ndvi(imageInPath, imageOutPath):
+def ndvi(img_array, false_color=False):
+    "Convert an RGB image array into a NDVI array image"
+    arrR, arrG, arrB = (img_array[..., i].astype(numpy.float32) for i in range(3))
+    num = (arrR - arrB)
+    denom = (arrR + arrB)
+    arr_ndvi = 1.0 - num/denom
+    return (arr_ndvi*numpy.iinfo(img_array.dtype).max).astype(img_array.dtype)
+
+
+def ndvi_plot(imageInPath, imageOutPath):
+    "Generate an NDVI plot from a file and into a file"
     img = Image.open(imageInPath)
     imgR, imgG, imgB = img.split()  # get channels
     arrR = numpy.asarray(imgR).astype('float64')
@@ -164,7 +177,15 @@ def ndvi(imageInPath, imageOutPath):
 
 
 def main(args):
-    ndvi(args[1], args[2])
+    if False:
+        ndvi_plot(args[1], args[2])
+    else:
+        img = numpy.asarray(Image.open(args[1]))
+        print(numpy.max(img), numpy.min(img), img.dtype)
+        out = ndvi(img)
+        print(numpy.max(out), numpy.min(out), out.dtype)
+        print(out.shape)
+        Image.fromarray(out).save(args[2])
 
 
 if __name__ == '__main__':

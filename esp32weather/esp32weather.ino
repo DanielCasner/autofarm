@@ -1,18 +1,18 @@
-#include <SparkFunCCS811.h>
+#include "SparkFunCCS811.h"
 #include "SparkFunBME280.h"
 #include "Wire.h"
-#include <Sparkfun_APDS9301_Library.h>
+#include "Sparkfun_APDS9301_Library.h"
 #include <WiFi.h>
 
 BME280 bme;
-CCS811 ccs(0x5B);
+CCS811 ccs(0x5B); ///< Note, run for 20 minutes at a time
 APDS9301 apds;
 
-// Variables for wifi server setup 
-const char* ssid     = "your_ssid_here";
-const char* password = "password"; 
+// Variables for wifi server setup
+const char* ssid     = "";
+const char* password = "";
 String ID = "wunderground_station_id";
-String key = "wunderground_station_key";  
+String key = "wunderground_station_key";
 WiFiClient client;
 const int httpPort = 80;
 const char* host = "weatherstation.wunderground.com";
@@ -38,14 +38,21 @@ String windDir = "";
 float windSpeed = 0.0;
 
 // Pin assignment definitions
+#define BUTTON       0
+#define AIR_RST      4
+#define DONE_LED     5
 #define WIND_SPD_PIN 14
+#define AIR_WAKE     15
+#define U2_RXD       16
+#define U2_TXD       17
+#define UVS_EN       18
+#define SDA          21
+#define SCL          22
 #define RAIN_PIN     25
 #define WIND_DIR_PIN 35
-#define AIR_RST      4
-#define AIR_WAKE     15
-#define DONE_LED     5
+#define UV_ADC       36
 
-void setup() 
+void setup()
 {
   delay(5);    // The CCS811 wants a brief delay after startup.
   Serial.begin(115200);
@@ -56,7 +63,7 @@ void setup()
 
   // Wind speed sensor setup. The windspeed is calculated according to the number
   //  of ticks per second. Timestamps are captured in the interrupt, and then converted
-  //  into mph. 
+  //  into mph.
   pinMode(WIND_SPD_PIN, INPUT);     // Wind speed sensor
   attachInterrupt(digitalPinToInterrupt(WIND_SPD_PIN), windTick, RISING);
 
@@ -113,7 +120,7 @@ void setup()
   digitalWrite(DONE_LED, HIGH);
 }
 
-void loop() 
+void loop()
 {
   static unsigned long outLoopTimer = 0;
   static unsigned long wundergroundUpdateTimer = 0;
@@ -168,6 +175,7 @@ void loop()
     Serial.print("Wind dir: ");
     windDirCalc(analogRead(WIND_DIR_PIN));
     Serial.print("  ");
+    Serial.print(analogRead(UV_ADC));
     Serial.println(windDir);
 
     // Calculate and display rainfall totals.
@@ -269,7 +277,7 @@ void loop()
       Serial.println("Connection succeeded");
     }
 
-    // Issue the GET command to Weather Underground to post the data we've 
+    // Issue the GET command to Weather Underground to post the data we've
     //  collected.
     client.print(String("GET ") + url + " HTTP/1.1\r\n" +
                  "Host: " + host + "\r\n" +
@@ -277,9 +285,9 @@ void loop()
 
     // Give Weather Underground five seconds to reply.
     unsigned long timeout = millis();
-    while (client.available() == 0) 
+    while (client.available() == 0)
     {
-      if (millis() - timeout > 5000) 
+      if (millis() - timeout > 5000)
       {
           Serial.println(">>> Client Timeout !");
           client.stop();
@@ -288,7 +296,7 @@ void loop()
     }
 
     // Read the response from Weather Underground and print it to the console.
-    while(client.available()) 
+    while(client.available())
     {
       String line = client.readStringUntil('\r');
       Serial.print(line);
@@ -333,4 +341,3 @@ void windDirCalc(int vin)
   else if (vin < 4000) windDir = "0";
   else windDir = "0";
 }
-
